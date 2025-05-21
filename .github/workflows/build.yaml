@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+# Add permissions to allow the workflow to push changes
+permissions:
+  contents: write
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,10 +48,28 @@ jobs:
       - name: List build directory
         run: ls -la build/
       
-      - name: Upload artifacts
+      - name: Upload artifacts (for workflow record)
         uses: actions/upload-artifact@v4
         with:
           name: extensions
           path: build/*.gluex
           if-no-files-found: warn
           retention-days: 7
+          
+      # New steps to commit the built extensions back to the repository
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Commit and push if changes
+        run: |
+          # Check if there are any changes to commit
+          if [[ -n $(git status --porcelain build/) ]]; then
+            git add build/
+            git commit -m "Update built extensions [skip ci]"
+            git push
+            echo "✅ Successfully committed updated extension packages to the repository"
+          else
+            echo "ℹ️ No changes to commit"
+          fi
