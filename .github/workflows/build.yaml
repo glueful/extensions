@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -68,7 +70,15 @@ jobs:
           if [[ -n $(git status --porcelain build/) ]]; then
             git add build/
             git commit -m "Update built extensions [skip ci]"
-            git push
+            
+            # For pull requests
+            if [[ -n "${{ github.head_ref }}" ]]; then
+              git push origin HEAD:${{ github.head_ref }}
+            # For direct pushes to branches
+            else
+              git push origin HEAD:${{ github.ref_name }}
+            fi
+            
             echo "✅ Successfully committed updated extension packages to the repository"
           else
             echo "ℹ️ No changes to commit"
