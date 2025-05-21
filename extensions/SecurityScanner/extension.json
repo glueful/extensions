@@ -1,0 +1,36 @@
+{
+  "name": "SecurityScanner",
+  "displayName": "Security Scanner",
+  "version": "0.26.0",
+  "publisher": "glueful-team",
+  "description": "Comprehensive security scanning system for code, dependencies, and APIs",
+  "categories": ["security", "code-quality", "vulnerability-scanning"],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#D32F2F",
+    "theme": "dark"
+  },
+  "engines": {
+    "glueful": ">=0.27.0"
+  },
+  "main": "./SecurityScanner.php",
+  "dependencies": {
+    "php": ">=8.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glueful/extensions/tree/main/extensions/SecurityScanner"
+  },
+  "extensionDependencies": [],
+  "features": [
+    "Static code analysis for security vulnerabilities",
+    "Dependency vulnerability scanning",
+    "Dynamic API endpoint testing",
+    "Security dashboard for centralized monitoring",
+    "Automated vulnerability detection",
+    "Best practice enforcement",
+    "Security advisory integration",
+    "Risk assessment and reporting",
+    "Remediation tracking"
+  ]
+}
