@@ -1,0 +1,26 @@
+{
+  "name": "CloudflareAdapter",
+  "displayName": "Cloudflare Adapter",
+  "version": "0.27.0",
+  "publisher": "glueful-team",
+  "description": "Cloudflare CDN adapter for EdgeCache service",
+  "categories": ["cdn", "performance", "cloudflare"],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#F6821F",
+    "theme": "dark"
+  },
+  "engines": {
+    "glueful": ">=0.27.0"
+  },
+  "main": "./CloudflareAdapter.php",
+  "dependencies": {
+    "php": ">=8.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glueful/extensions/tree/main/extensions/CloudflareAdapter"
+  },
+  "extensionDependencies": [],
+  "type": "optional"
+}

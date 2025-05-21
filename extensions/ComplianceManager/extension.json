@@ -1,0 +1,33 @@
+{
+  "name": "ComplianceManager",
+  "displayName": "Compliance Manager",
+  "version": "0.26.0",
+  "publisher": "glueful-team",
+  "description": "The ComplianceManager extension provides organizations with comprehensive tools to meet regulatory requirements across multiple privacy and security frameworks including GDPR, CCPA, and HIPAA",
+  "categories": ["compliance", "security", "privacy"],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#246B3B",
+    "theme": "dark"
+  },
+  "engines": {
+    "glueful": ">=0.27.0"
+  },
+  "main": "./ComplianceManager.php",
+  "dependencies": {
+    "php": ">=8.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glueful/extensions/tree/main/extensions/ComplianceManager"
+  },
+  "extensionDependencies": [],
+  "type": "optional",
+  "features": [
+    "Data classification and sensitivity detection",
+    "GDPR compliance tools including subject rights management",
+    "CCPA compliance tools for consumer rights requests",
+    "HIPAA compliance for PHI data protection",
+    "Regulatory compliance reporting and tracking"
+  ]
+}

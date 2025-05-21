@@ -1,0 +1,33 @@
+{
+  "name": "OAuthServer",
+  "displayName": "OAuth Server",
+  "version": "0.26.0",
+  "publisher": "glueful-team",
+  "description": "OAuth server implementation that handles different grant types",
+  "categories": ["authentication", "oauth", "security"],
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#3D5AFE",
+    "theme": "dark"
+  },
+  "engines": {
+    "glueful": ">=0.27.0"
+  },
+  "main": "./OAuthServer.php",
+  "dependencies": {
+    "php": ">=8.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glueful/extensions/tree/main/extensions/OAuthServer"
+  },
+  "extensionDependencies": [],
+  "type": "optional",
+  "features": [
+    "OAuth 2.0 server implementation",
+    "Multiple grant types support",
+    "Access token and refresh token management",
+    "PKCE support for enhanced security",
+    "Configurable token lifetimes"
+  ]
+}
