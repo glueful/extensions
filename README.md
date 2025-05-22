@@ -46,14 +46,18 @@ Each extension follows a standard structure:
 
 ```
 ExtensionName/
+├── composer.json       # Composer package definition with PSR-4 autoloading
 ├── extension.json      # Extension metadata and configuration
 ├── README.md           # Documentation
-├── [Main PHP file]     # Primary extension class
-├── config.php          # Configuration defaults
-├── routes.php          # Route definitions (if applicable)
+├── [Main PHP file]     # Primary extension class (e.g., ExtensionName.php)
+├── src/                # Source code directory
+│   ├── config.php      # Configuration defaults
+│   ├── routes.php      # Route definitions (if applicable)
+│   └── ...             # Extension-specific implementation classes
+├── tests/              # Unit tests following the same namespace structure
 ├── assets/             # Images, icons, etc.
 ├── screenshots/        # UI screenshots for documentation
-└── ...                 # Other extension-specific files and directories
+└── scripts/            # Build and deployment scripts
 ```
 
 ## Development
