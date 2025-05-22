@@ -12,6 +12,34 @@ This repository contains the official extensions developed by the Glueful team f
 - **SecurityScanner** - Comprehensive security scanning for code, dependencies, and APIs
 - **SocialLogin** - Authentication via social providers (Google, Facebook, GitHub, Apple)
 
+## Development Setup
+
+To set up this extensions monorepo for development:
+
+1. Clone this repository
+2. Run the setup script to configure your development environment:
+
+```bash
+php setup.php
+```
+
+This will:
+- Ask for your Glueful installation path
+- Set up a shared .env file for all extensions
+- Configure the monorepo's composer.json
+- Create necessary bootstrap files
+
+3. To set up individual extensions for development:
+
+```bash
+php setup-extension.php ExtensionName
+```
+
+For example:
+```bash
+php setup-extension.php EmailNotification
+```
+
 ## Extension Structure
 
 Each extension follows a standard structure:
