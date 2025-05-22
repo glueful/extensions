@@ -9,3 +9,4 @@
 # Operating system files
 .DS_Store
 Thumbs.db
+extensions/.env
