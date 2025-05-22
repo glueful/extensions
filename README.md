@@ -32,12 +32,12 @@ This will:
 3. To set up individual extensions for development:
 
 ```bash
-php setup-extension.php ExtensionName
+php setup.php ExtensionName
 ```
 
 For example:
 ```bash
-php setup-extension.php EmailNotification
+php setup.php EmailNotification
 ```
 
 ## Extension Structure
