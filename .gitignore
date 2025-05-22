@@ -1,0 +1,11 @@
+# Development files
+/vendor/
+/composer.lock
+/.phpunit.result.cache
+
+# Environment variables
+/.env
+
+# Operating system files
+.DS_Store
+Thumbs.db

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-/**
+/*
  * Email Notification Channel Configuration
  *
  * Default configuration for the Email Notification Channel.

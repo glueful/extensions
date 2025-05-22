@@ -14,6 +14,54 @@ This extension adds email notification capabilities to the Glueful Notifications
 ## Installation
 
 1. Ensure the extension is in your `extensions/EmailNotification` directory.
+
+## Development Setup
+
+When developing this extension outside the Glueful directory:
+
+### Option 1: Using the Monorepo Setup (Recommended)
+
+If you're working with the Glueful extensions monorepo:
+
+1. Set up the monorepo environment first:
+```bash
+cd /path/to/glueful/extensions
+php setup.php
+```
+
+2. Configure this extension:
+```bash
+php setup-extension.php EmailNotification
+```
+
+### Option 2: Standalone Extension Setup
+
+If you're working with this extension as a standalone repository:
+
+```bash
+php setup.php
+```
+
+### Option 3: Manual Setup
+
+1. Set the Glueful path environment variable:
+
+```bash
+# For bash/zsh
+export GLUEFUL_PATH=/path/to/glueful
+
+# For Windows Command Prompt
+set GLUEFUL_PATH=C:\path\to\glueful
+
+# For PowerShell
+$env:GLUEFUL_PATH = "C:\path\to\glueful"
+```
+
+2. Install dependencies:
+
+```bash
+composer install
+```
 2. Update your `config/extensions.php` file to enable the extension:
 
 ```php
