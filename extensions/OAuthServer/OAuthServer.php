@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Glueful\Extensions;
 
 use Glueful\Auth\AuthBootstrap;
-use Glueful\Http\Router;
 
 /**
  * OAuthServer Extension
