@@ -1,0 +1,3 @@
+# This file ensures the build directory exists in Git
+# even when all its contents are ignored by the parent .gitignore
+# The GitHub Actions workflow will populate this directory with built extensions

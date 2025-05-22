@@ -1,0 +1,6 @@
+# This special .gitignore is used by the GitHub Actions workflow
+# to specifically NOT ignore built extension files that should be committed
+# even though they're ignored in the local development environment
+
+# Un-ignore .gluex files in this directory
+!*.gluex

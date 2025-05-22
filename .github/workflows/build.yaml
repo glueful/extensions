@@ -66,9 +66,11 @@ jobs:
       
       - name: Commit and push if changes
         run: |
+          # Force add build directory (even if it's in .gitignore)
+          git add -f build/*.gluex
+          
           # Check if there are any changes to commit
           if [[ -n $(git status --porcelain build/) ]]; then
-            git add build/
             git commit -m "Update built extensions [skip ci]"
             
             # For pull requests
