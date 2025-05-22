@@ -2,7 +2,7 @@
 /vendor/
 /composer.lock
 /.phpunit.result.cache
-
+/build/
 # Environment variables
 /.env
 
@@ -10,3 +10,4 @@
 .DS_Store
 Thumbs.db
 extensions/.env
+
