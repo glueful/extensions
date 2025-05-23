@@ -71,7 +71,10 @@ function buildExtension(string $name): void
 
     // Copy extension files
     // List all files and directories in the extension directory except for standard excludes
-    $excludes = ['.', '..', '.git', '.github', '.vscode', 'node_modules', 'vendor', 'tests', '.DS_Store', '.gitignore'];
+    $excludes = [
+        '.', '..', '.git', '.github', '.vscode', 'node_modules',
+        'vendor', 'tests', 'composer.lock', '.DS_Store', '.gitignore'
+    ];
     $items = scandir($extensionDir);
 
     foreach ($items as $item) {
