@@ -8,68 +8,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Glueful\Extensions\SocialLogin\Providers\AbstractSocialProvider;
 use Glueful\Auth\JWTService;
-
-/**
- * ASN1 Parser for DER encoded signatures
- */
-class ASN1Parser
-{
-    /** @var string Binary data to parse */
-    private string $data;
-
-    /** @var int Current position in the data */
-    private int $pos = 0;
-
-    /**
-     * Constructor
-     *
-     * @param string $data Binary data to parse
-     */
-    public function __construct(string $data)
-    {
-        $this->data = $data;
-    }
-
-    /**
-     * Read an ASN.1 object from the data
-     *
-     * @return array Object information (type, length, value)
-     */
-    public function readObject(): array
-    {
-        $type = ord($this->data[$this->pos++]);
-        $length = $this->readLength();
-        $value = substr($this->data, $this->pos, $length);
-        $this->pos += $length;
-
-        return [
-            "type" => $type,
-            "length" => $length,
-            "value" => $value
-        ];
-    }
-
-    /**
-     * Read ASN.1 length field
-     *
-     * @return int Length of the following content
-     */
-    private function readLength(): int
-    {
-        $length = ord($this->data[$this->pos++]);
-
-        if ($length & 0x80) {
-            $lengthBytes = $length & 0x7F;
-            $length = 0;
-
-            for ($i = 0; $i < $lengthBytes; $i++) {
-                $length = ($length << 8) | ord($this->data[$this->pos++]);
-            }
-        }
-
-        return $length;
-    }
-}
+use Glueful\Extensions\SocialLogin\Providers\ASN1Parser;
 
 /**
  * Apple Authentication Provider
@@ -512,7 +451,8 @@ class AppleAuthProvider extends AbstractSocialProvider
                 $decodedPayload = $method->invoke(null, $tokenParts[1]);
             } catch (\ReflectionException $e) {
                 // Fallback implementation if reflection fails
-                $decodedPayload = base64_decode(strtr($tokenParts[1], '-_', '+/') . str_repeat('=', 3 - (3 + strlen($tokenParts[1])) % 4));
+                $padding = str_repeat('=', 3 - (3 + strlen($tokenParts[1])) % 4);
+                $decodedPayload = base64_decode(strtr($tokenParts[1], '-_', '+/') . $padding);
             }
 
             $payload = json_decode($decodedPayload, true);
@@ -624,7 +564,8 @@ class AppleAuthProvider extends AbstractSocialProvider
             $decodedHeader = $method->invoke(null, $tokenParts[0]);
         } catch (\ReflectionException $e) {
             // Fallback implementation if reflection fails
-            $decodedHeader = base64_decode(strtr($tokenParts[0], '-_', '+/') . str_repeat('=', 3 - (3 + strlen($tokenParts[0])) % 4));
+            $padding = str_repeat('=', 3 - (3 + strlen($tokenParts[0])) % 4);
+            $decodedHeader = base64_decode(strtr($tokenParts[0], '-_', '+/') . $padding);
         }
 
         $header = json_decode($decodedHeader, true);
@@ -662,7 +603,8 @@ class AppleAuthProvider extends AbstractSocialProvider
                 $decodedPayload = $method->invoke(null, $tokenParts[1]);
             } catch (\ReflectionException $e) {
                 // Fallback implementation
-                $decodedPayload = base64_decode(strtr($tokenParts[1], '-_', '+/') . str_repeat('=', 3 - (3 + strlen($tokenParts[1])) % 4));
+                $padding = str_repeat('=', 3 - (3 + strlen($tokenParts[1])) % 4);
+                $decodedPayload = base64_decode(strtr($tokenParts[1], '-_', '+/') . $padding);
             }
 
             $payload = json_decode($decodedPayload, true);

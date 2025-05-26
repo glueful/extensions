@@ -83,7 +83,7 @@ class EmailNotification extends \Glueful\Extensions
      *
      * @return void
      */
-    public static function registerServices(): void
+    public static function registerServices($container = null): void
     {
         try {
             if (self::$provider) {
@@ -124,7 +124,7 @@ class EmailNotification extends \Glueful\Extensions
     private static function loadConfig(): void
     {
         // Default configuration
-        $defaultConfig = require __DIR__ . '/config.php';
+        $defaultConfig = require __DIR__ . '/src/config.php';
 
         // Try to load main mail config
         $mailConfig = config('mail') ?? [];

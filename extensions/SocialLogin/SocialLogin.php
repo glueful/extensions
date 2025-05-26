@@ -9,6 +9,7 @@ use Glueful\Auth\AuthBootstrap;
 use Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider;
 use Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider;
 use Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider;
+use Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider;
 use Glueful\Helpers\ExtensionsManager;
 
 /**
@@ -39,7 +40,7 @@ class SocialLogin extends \Glueful\Extensions
     private static array $config = [];
 
     /** @var array Supported social providers */
-    private static array $supportedProviders = ['google', 'facebook', 'github'];
+    private static array $supportedProviders = ['google', 'facebook', 'github', 'apple'];
 
     /**
      * Initialize extension
@@ -63,7 +64,7 @@ class SocialLogin extends \Glueful\Extensions
      *
      * @return void
      */
-    public static function registerServices(): void
+    public static function registerServices($container = null): void
     {
         // Could integrate with a service container if needed
     }
@@ -87,7 +88,7 @@ class SocialLogin extends \Glueful\Extensions
     {
         // Default configuration
         $defaultConfig = [
-            'enabled_providers' => ['google', 'facebook', 'github'],
+            'enabled_providers' => ['google', 'facebook', 'github', 'apple'],
             'auto_register' => true,
             'link_accounts' => true,
             'sync_profile' => true,
@@ -126,6 +127,16 @@ class SocialLogin extends \Glueful\Extensions
                 $authManager->registerProvider('google', $googleProvider);
             } catch (\Exception $e) {
                 error_log("Failed to register Google auth provider: " . $e->getMessage());
+            }
+        }
+
+        // Apple provider
+        if (in_array('apple', $enabledProviders)) {
+            try {
+                $appleProvider = new AppleAuthProvider();
+                $authManager->registerProvider('apple', $appleProvider);
+            } catch (\Exception $e) {
+                error_log("Failed to register Apple auth provider: " . $e->getMessage());
             }
         }
 
