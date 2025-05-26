@@ -99,7 +99,7 @@ class EmailFormatter
 
         // Ensure logo_url is always available, using config default if not provided
         if (!isset($templateData['logo_url'])) {
-            $templateData['logo_url'] = config('services.mail.logo_url', 'https://brand.glueful.com/logo.png');
+            $templateData['logo_url'] = config('mail.logo_url', 'https://brand.glueful.com/logo.png');
         }
 
         // Add notifiable information

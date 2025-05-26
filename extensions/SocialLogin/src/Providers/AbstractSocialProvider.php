@@ -136,8 +136,11 @@ abstract class AbstractSocialProvider implements AuthenticationProviderInterface
      * @param int|null $refreshTokenLifetime Custom refresh token lifetime
      * @return array Generated tokens
      */
-    public function generateTokens(array $userData, ?int $accessTokenLifetime = null, ?int $refreshTokenLifetime = null): array
-    {
+    public function generateTokens(
+        array $userData,
+        ?int $accessTokenLifetime = null,
+        ?int $refreshTokenLifetime = null
+    ): array {
         // Add provider information to the token claims
         $userData['provider'] = $this->providerName;
 
