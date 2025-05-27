@@ -32,7 +32,7 @@ return [
 3. Run migrations to create the necessary database tables:
 
 ```bash
-php glueful db:migrate
+php glueful migrate run
 ```
 
 ## Configuration

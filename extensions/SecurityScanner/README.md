@@ -19,7 +19,7 @@ return [
 3. Run migrations if needed:
 
 ```bash
-php glueful db:migrate
+php glueful migrate run
 ```
 
 ## Configuration
