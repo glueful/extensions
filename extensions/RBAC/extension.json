@@ -1,0 +1,56 @@
+{
+    "name": "RBAC",
+    "display_name": "Role-Based Access Control",
+    "description": "Modern, flexible role-based access control system with hierarchical roles, permissions, and audit trails",
+    "version": "1.0.0",
+    "author": "Glueful",
+    "license": "MIT",
+    "type": "permission",
+    "priority": 100,
+    "requires": {
+        "glueful": ">=1.0.0",
+        "php": ">=8.1"
+    },
+    "provides": [
+        "permission_provider",
+        "role_management",
+        "permission_management"
+    ],
+    "hooks": {
+        "boot": "RBACExtension::boot",
+        "permissions": "RBACExtension::registerPermissions",
+        "routes": "RBACExtension::registerRoutes"
+    },
+    "config": {
+        "cache_enabled": true,
+        "cache_ttl": 3600,
+        "audit_enabled": true,
+        "role_hierarchy_enabled": true,
+        "permission_inheritance": true
+    },
+    "migrations": [
+        "001_CreateRolesTables.php",
+        "002_CreatePermissionsTables.php",
+        "003_SeedDefaultRoles.php"
+    ],
+    "models": [
+        "Role",
+        "Permission",
+        "UserRole",
+        "UserPermission"
+    ],
+    "providers": [
+        "RBACPermissionProvider"
+    ],
+    "middleware": [
+        "rbac.permission",
+        "rbac.role"
+    ],
+    "routes": {
+        "api": "routes/api.php",
+        "admin": "routes/admin.php"
+    },
+    "dependencies": {
+        "core_permissions": "required"
+    }
+}
