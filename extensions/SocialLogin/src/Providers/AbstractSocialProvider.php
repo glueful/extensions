@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Glueful\Extensions\SocialLogin\Providers;
 
 use Symfony\Component\HttpFoundation\Request;
-use Glueful\Auth\AuthenticationProviderInterface;
+use Glueful\Auth\Interfaces\AuthenticationProviderInterface;
 use Glueful\Repository\UserRepository;
 use Glueful\Auth\TokenManager;
 use Glueful\Auth\JWTService;
@@ -458,8 +458,6 @@ abstract class AbstractSocialProvider implements AuthenticationProviderInterface
      */
     protected function formatUserData(array $user): array
     {
-        // Get user roles
-        $roles = $this->userRepository->getRoles($user['uuid']);
 
         // Get user profile
         $profile = $this->userRepository->getProfile($user['uuid']);
@@ -470,9 +468,6 @@ abstract class AbstractSocialProvider implements AuthenticationProviderInterface
             'username' => $user['username'],
             'email' => $user['email'],
             'status' => $user['status'],
-            'roles' => array_map(function ($role) {
-                return $role['role_name'];
-            }, $roles),
             'profile' => $profile,
             'provider' => $this->providerName,
             'last_login' => date('Y-m-d H:i:s')

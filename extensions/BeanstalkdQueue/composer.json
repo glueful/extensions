@@ -1,0 +1,55 @@
+{
+    "name": "glueful/beanstalkd-queue",
+    "description": "Beanstalkd queue driver extension for the Glueful Framework",
+    "type": "glueful-extension",
+    "keywords": ["glueful", "queue", "beanstalkd", "jobs", "background-processing"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Glueful Framework",
+            "email": "extensions@glueful.com",
+            "homepage": "https://glueful.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.2.0",
+        "pda/pheanstalk": "^5.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "phpstan/phpstan": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Glueful\\Extensions\\BeanstalkdQueue\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Glueful\\Extensions\\BeanstalkdQueue\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "glueful": {
+            "extension": "Glueful\\Extensions\\BeanstalkdQueue\\BeanstalkdQueue",
+            "config": {
+                "publish": [
+                    {
+                        "provider": "Glueful\\Extensions\\BeanstalkdQueue\\BeanstalkdServiceProvider",
+                        "config": "config/beanstalkd.php"
+                    }
+                ]
+            }
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "check": [
+            "@test",
+            "@analyse"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

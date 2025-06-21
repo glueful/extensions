@@ -37,13 +37,13 @@ class Admin extends \Glueful\Extensions
     }
 
     /**
-     * Register extension-provided services
+     * Get the extension's service provider
      *
-     * @return void
+     * @return \Glueful\DI\Interfaces\ServiceProviderInterface
      */
-    public static function registerServices(): void
+    public static function getServiceProvider(): \Glueful\DI\Interfaces\ServiceProviderInterface
     {
-        // Register services here
+        return new \Glueful\Extensions\Admin\AdminServiceProvider();
     }
 
     /**

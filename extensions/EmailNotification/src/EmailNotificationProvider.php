@@ -43,13 +43,65 @@ class EmailNotificationProvider implements NotificationExtension
      */
     public function __construct(array $config = [])
     {
-        // Load default config
-        $defaultConfig = require __DIR__ . '/config.php';
-        // Merge with provided config
-        $this->config = array_merge($defaultConfig, $config);
+        // Load core mail configuration from services.php
+        $coreMailConfig = config('services.mail') ?? [];
+
+        // Load extension-specific configuration
+        $extensionConfig = require __DIR__ . '/config.php';
+
+        // Transform core mail config to match EmailChannel expectations
+        $transformedCoreConfig = $this->transformCoreMailConfig($coreMailConfig);
+
+        // Merge configurations: transformed core config + extension features + provided overrides
+        $this->config = array_merge($transformedCoreConfig, $extensionConfig, $config);
 
         // Initialize logger
         $this->logger = new LogManager('email_notification');
+    }
+
+    /**
+     * Transform core mail config to match EmailChannel expectations
+     *
+     * @param array $coreConfig Core mail config from services.php
+     * @return array Transformed config for EmailChannel
+     */
+    private function transformCoreMailConfig(array $coreConfig): array
+    {
+        if (empty($coreConfig)) {
+            return [];
+        }
+
+        $transformed = [];
+
+        // Get the default mailer type (smtp, ses, etc.)
+        $defaultMailer = $coreConfig['default'] ?? 'smtp';
+
+        // Transform SMTP config if available
+        if (isset($coreConfig[$defaultMailer]) && $defaultMailer === 'smtp') {
+            $smtpConfig = $coreConfig[$defaultMailer];
+
+            // Map to EmailChannel expected structure
+            $transformed = [
+                'host' => $smtpConfig['host'] ?? '',
+                'port' => $smtpConfig['port'] ?? 587,
+                'username' => $smtpConfig['username'] ?? '',
+                'password' => $smtpConfig['password'] ?? '',
+                'encryption' => $smtpConfig['encryption'] ?? 'tls',
+                'smtp_auth' => true,
+            ];
+        }
+
+        // Copy from address configuration
+        if (isset($coreConfig['from'])) {
+            $transformed['from'] = $coreConfig['from'];
+        }
+
+        // Copy other relevant settings
+        if (isset($coreConfig['retry'])) {
+            $transformed['retry'] = $coreConfig['retry'];
+        }
+
+        return $transformed;
     }
 
     /**
@@ -247,43 +299,54 @@ class EmailNotificationProvider implements NotificationExtension
             }
 
             // Check mail configuration
-            $mailConfig = config('mail');
+            $mailConfig = config('services.mail');
             if (empty($mailConfig) || !is_array($mailConfig)) {
                 $this->logger->error("Mail configuration is missing or invalid");
                 return false;
             }
 
-            if (empty($mailConfig['driver'])) {
-                $this->logger->error("Mail driver is not configured");
+            // Get the default mailer (smtp, ses, mailgun, etc.)
+            $defaultMailer = $mailConfig['default'] ?? 'smtp';
+            // Check if the mailer configuration exists
+            if (!isset($mailConfig[$defaultMailer])) {
+                $this->logger->error("Mail driver '{$defaultMailer}' configuration is missing");
                 return false;
             }
 
+            $driverConfig = $mailConfig[$defaultMailer];
+
             // Check specific driver requirements
-            switch ($mailConfig['driver']) {
+            switch ($defaultMailer) {
                 case 'smtp':
-                    if (empty($mailConfig['host'])) {
+                    if (empty($driverConfig['host'])) {
                         $this->logger->error("SMTP host is not configured");
                         return false;
                     }
-                    if (empty($mailConfig['port'])) {
+                    if (empty($driverConfig['port'])) {
                         $this->logger->error("SMTP port is not configured");
                         return false;
                     }
                     break;
 
                 case 'ses':
-                    if (empty($mailConfig['key']) || empty($mailConfig['secret'])) {
+                    if (empty($driverConfig['key']) || empty($driverConfig['secret'])) {
                         $this->logger->error("Amazon SES credentials are missing");
                         return false;
                     }
                     break;
 
                 case 'mailgun':
-                    if (empty($mailConfig['domain']) || empty($mailConfig['secret'])) {
+                    if (empty($driverConfig['domain']) || empty($driverConfig['secret'])) {
                         $this->logger->error("Mailgun credentials are missing");
                         return false;
                     }
                     break;
+            }
+
+            // Check from address is configured
+            if (empty($mailConfig['from']['address'])) {
+                $this->logger->error("From email address is not configured");
+                return false;
             }
 
             // Check if the channel is initialized and available
@@ -358,7 +421,7 @@ class EmailNotificationProvider implements NotificationExtension
             // Count total emails sent through email channel
             $sentEmails = $queryBuilder
                 ->select('notifications')
-                ->whereRaw("JSON_CONTAINS(data, '\"email\"', '$.channels')")
+                ->whereJsonContains('data', 'email', '$.channels')
                 ->whereNotNull('sent_at')
                 ->count('notifications');
 
@@ -367,8 +430,8 @@ class EmailNotificationProvider implements NotificationExtension
             // Count failed emails (those with error data)
             $failedEmails = $queryBuilder
                 ->select('notifications')
-                ->whereRaw("JSON_CONTAINS(data, '\"email\"', '$.channels')")
-                ->whereRaw("JSON_CONTAINS(data, 'true', '$.error')")
+                ->whereJsonContains('data', 'email', '$.channels')
+                ->whereJsonContains('data', 'true', '$.error')
                 ->count('notifications');
 
             $metrics['emails_failed'] = $failedEmails;
@@ -384,7 +447,7 @@ class EmailNotificationProvider implements NotificationExtension
             // Get last sent email timestamp
             $lastSentEmail = $queryBuilder
                 ->select('notifications', ['sent_at'])
-                ->whereRaw("JSON_CONTAINS(data, '\"email\"', '$.channels')")
+                ->whereJsonContains('data', 'email', '$.channels')
                 ->whereNotNull('sent_at')
                 ->orderBy(['sent_at' => 'DESC'])
                 ->limit(1)
@@ -395,7 +458,7 @@ class EmailNotificationProvider implements NotificationExtension
             // Calculate read rate
             $readEmails = $queryBuilder
                 ->select('notifications')
-                ->whereRaw("JSON_CONTAINS(data, '\"email\"', '$.channels')")
+                ->whereJsonContains('data', 'email', '$.channels')
                 ->whereNotNull('read_at')
                 ->count('notifications');
 
@@ -419,7 +482,7 @@ class EmailNotificationProvider implements NotificationExtension
             // Get email queue size - scheduled emails not yet sent
             $queueSize = $queryBuilder
                 ->select('notifications')
-                ->whereRaw("JSON_CONTAINS(data, '\"email\"', '$.channels')")
+                ->whereJsonContains('data', 'email', '$.channels')
                 ->whereNotNull('scheduled_at')
                 ->whereNull('sent_at')
                 ->count('notifications');

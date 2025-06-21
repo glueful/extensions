@@ -10,6 +10,7 @@ use Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider;
 use Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider;
 use Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider;
 use Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider;
+use Glueful\Extensions\SocialLogin\SocialLoginServiceProvider;
 use Glueful\Helpers\ExtensionsManager;
 
 /**
@@ -46,7 +47,7 @@ class SocialLogin extends \Glueful\Extensions
      * Initialize extension
      *
      * Sets up social authentication providers and registers them with
-     * the authentication system.
+     * the authentication system via DI container.
      *
      * @return void
      */
@@ -55,19 +56,10 @@ class SocialLogin extends \Glueful\Extensions
         // Load configuration
         self::loadConfig();
 
-        // Register providers with the authentication system
-        self::registerAuthProviders();
+        // Provider registration is now handled by the service provider
+        // during the boot phase, so no explicit registration needed here
     }
 
-    /**
-     * Register extension-provided services
-     *
-     * @return void
-     */
-    public static function registerServices($container = null): void
-    {
-        // Could integrate with a service container if needed
-    }
 
     /**
      * Register extension-specific routes
@@ -104,62 +96,6 @@ class SocialLogin extends \Glueful\Extensions
         }
     }
 
-    /**
-     * Register social authentication providers
-     *
-     * Initializes and registers authentication providers with the
-     * authentication system.
-     *
-     * @return void
-     */
-    private static function registerAuthProviders(): void
-    {
-        // Initialize the authentication system
-        $authManager = AuthBootstrap::getManager();
-
-        // Register providers based on configuration
-        $enabledProviders = self::$config['enabled_providers'] ?? [];
-
-        // Google provider
-        if (in_array('google', $enabledProviders)) {
-            try {
-                $googleProvider = new GoogleAuthProvider();
-                $authManager->registerProvider('google', $googleProvider);
-            } catch (\Exception $e) {
-                error_log("Failed to register Google auth provider: " . $e->getMessage());
-            }
-        }
-
-        // Apple provider
-        if (in_array('apple', $enabledProviders)) {
-            try {
-                $appleProvider = new AppleAuthProvider();
-                $authManager->registerProvider('apple', $appleProvider);
-            } catch (\Exception $e) {
-                error_log("Failed to register Apple auth provider: " . $e->getMessage());
-            }
-        }
-
-        // Facebook provider
-        if (in_array('facebook', $enabledProviders)) {
-            try {
-                $facebookProvider = new FacebookAuthProvider();
-                $authManager->registerProvider('facebook', $facebookProvider);
-            } catch (\Exception $e) {
-                error_log("Failed to register Facebook auth provider: " . $e->getMessage());
-            }
-        }
-
-        // GitHub provider
-        if (in_array('github', $enabledProviders)) {
-            try {
-                $githubProvider = new GithubAuthProvider();
-                $authManager->registerProvider('github', $githubProvider);
-            } catch (\Exception $e) {
-                error_log("Failed to register GitHub auth provider: " . $e->getMessage());
-            }
-        }
-    }
 
     /**
      * Get extension configuration
@@ -281,10 +217,28 @@ class SocialLogin extends \Glueful\Extensions
 
         // Check if authentication system is available
         try {
+            $container = app();
             $authManager = AuthBootstrap::getManager();
             if (!$authManager) {
                 $healthy = false;
                 $issues[] = 'Authentication manager not available';
+            }
+
+            // Check if providers are registered in the container
+            $enabledProviders = self::$config['enabled_providers'] ?? [];
+            foreach ($enabledProviders as $provider) {
+                $providerClass = match ($provider) {
+                    'google' => GoogleAuthProvider::class,
+                    'facebook' => FacebookAuthProvider::class,
+                    'github' => GithubAuthProvider::class,
+                    'apple' => AppleAuthProvider::class,
+                    default => null
+                };
+
+                if ($providerClass && !$container->has($providerClass)) {
+                    $healthy = false;
+                    $issues[] = "{$provider} provider not registered in DI container";
+                }
             }
         } catch (\Exception $e) {
             $healthy = false;
@@ -318,5 +272,15 @@ class SocialLogin extends \Glueful\Extensions
         ];
 
         return $metrics;
+    }
+
+    /**
+     * Get the service provider for this extension
+     *
+     * @return \Glueful\DI\Interfaces\ServiceProviderInterface
+     */
+    public static function getServiceProvider(): \Glueful\DI\Interfaces\ServiceProviderInterface
+    {
+        return new SocialLoginServiceProvider();
     }
 }

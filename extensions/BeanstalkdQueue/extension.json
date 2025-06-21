@@ -1,0 +1,118 @@
+{
+    "name": "BeanstalkdQueue",
+    "displayName": "Beanstalkd Queue Driver",
+    "version": "1.0.0",
+    "description": "Beanstalkd queue driver for high-performance job processing with tube management and priority scheduling",
+    "author": "Glueful Framework",
+    "email": "extensions@glueful.com",
+    "website": "https://glueful.com/extensions/beanstalkd-queue",
+    "license": "MIT",
+    "type": "queue-driver",
+    "category": "Queue Systems",
+    "tags": ["queue", "beanstalkd", "jobs", "background-processing", "priority", "tubes"],
+    "main": "BeanstalkdQueue.php",
+    "namespace": "Glueful\\Extensions\\BeanstalkdQueue",
+    "autoload": {
+        "psr-4": {
+            "Glueful\\Extensions\\BeanstalkdQueue\\": "src/"
+        }
+    },
+    "dependencies": {
+        "php": ">=8.2.0",
+        "glueful/framework": ">=2.0.0"
+    },
+    "require": {
+        "ext-sockets": "*"
+    },
+    "suggest": {
+        "ext-pcntl": "For signal handling in workers"
+    },
+    "external_dependencies": {
+        "beanstalkd": {
+            "description": "Beanstalkd message queue server",
+            "version": ">=1.10",
+            "install_guide": "https://beanstalkd.github.io/download.html",
+            "check_command": "which beanstalkd"
+        }
+    },
+    "config": {
+        "queue": {
+            "connections": {
+                "beanstalkd": {
+                    "driver": "beanstalkd",
+                    "host": "127.0.0.1",
+                    "port": 11300,
+                    "timeout": 5,
+                    "persistent": false,
+                    "default_tube": "default",
+                    "retry_after": 90,
+                    "max_priority": 1024
+                }
+            }
+        }
+    },
+    "environment_variables": {
+        "BEANSTALKD_HOST": {
+            "description": "Beanstalkd server hostname",
+            "default": "127.0.0.1"
+        },
+        "BEANSTALKD_PORT": {
+            "description": "Beanstalkd server port",
+            "default": "11300"
+        },
+        "BEANSTALKD_TIMEOUT": {
+            "description": "Connection timeout in seconds",
+            "default": "5"
+        },
+        "BEANSTALKD_PERSISTENT": {
+            "description": "Use persistent connections",
+            "default": "false"
+        },
+        "BEANSTALKD_DEFAULT_TUBE": {
+            "description": "Default tube name",
+            "default": "default"
+        },
+        "BEANSTALKD_RETRY_AFTER": {
+            "description": "Seconds before job retry",
+            "default": "90"
+        },
+        "BEANSTALKD_MAX_PRIORITY": {
+            "description": "Maximum job priority",
+            "default": "1024"
+        }
+    },
+    "screenshots": [
+        "screenshots/beanstalkd-dashboard.png",
+        "screenshots/tube-management.png"
+    ],
+    "documentation": {
+        "readme": "README.md",
+        "changelog": "CHANGELOG.md",
+        "installation": "docs/INSTALLATION.md",
+        "configuration": "docs/CONFIGURATION.md",
+        "usage": "docs/USAGE.md"
+    },
+    "support": {
+        "issues": "https://github.com/glueful/extensions/issues",
+        "forum": "https://community.glueful.com/c/extensions/beanstalkd-queue",
+        "email": "support@glueful.com"
+    },
+    "keywords": [
+        "glueful",
+        "extension",
+        "queue",
+        "beanstalkd",
+        "message-queue",
+        "job-processing",
+        "background-jobs",
+        "priority-queue",
+        "tube-management"
+    ],
+    "minimum_glueful_version": "2.0.0",
+    "tested_up_to": "2.1.0",
+    "stability": "stable",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/glueful/beanstalkd-queue-extension.git"
+    }
+}
