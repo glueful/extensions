@@ -56,6 +56,9 @@ class RBAC extends Extensions implements IExtensions
 
     /**
      * Initialize the RBAC extension
+     *
+     * Note: Permission provider registration is now handled by RBACServiceProvider
+     * This method only handles extension-specific initialization
      */
     public static function initialize(): void
     {
@@ -63,32 +66,13 @@ class RBAC extends Extensions implements IExtensions
             // Load configuration
             self::$config = self::loadConfiguration();
 
-            // Initialize permission provider
-            self::$permissionProvider = new RBACPermissionProvider();
-            self::$permissionProvider->initialize(self::$config);
-
-            // Register with permission manager
-            if (class_exists('\Glueful\Permissions\PermissionManager')) {
-                try {
-                    $container = app();
-                    if ($container->has('permission.manager')) {
-                        $permissionManager = $container->get('permission.manager');
-                        $permissionManager->registerProviders(['rbac' => self::$permissionProvider]);
-                    } else {
-                        // Fallback: create instance directly if container doesn't have it
-                        $permissionManager = new PermissionManager();
-                        $permissionManager->registerProviders(['rbac' => self::$permissionProvider]);
-                    }
-                } catch (\Exception $e) {
-                    error_log("Failed to register RBAC permission provider: " . $e->getMessage());
-                }
-            }
-
             // Register middleware if configured
             static::registerMiddleware();
 
             // Run database migrations if needed
             static::runMigrations();
+
+            error_log("RBAC Extension initialized successfully");
         } catch (\Exception $e) {
             error_log("RBAC Extension initialization failed: " . $e->getMessage());
             throw $e;
@@ -112,7 +96,7 @@ class RBAC extends Extensions implements IExtensions
             'name' => 'RBAC',
             'display_name' => 'Role-Based Access Control',
             'description' => 'Modern, hierarchical role-based access control system',
-            'version' => '1.0.0',
+            'version' => '0.27.0',
             'author' => 'Glueful Team',
             'license' => 'MIT',
             'type' => 'permission',

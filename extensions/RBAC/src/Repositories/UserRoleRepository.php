@@ -49,10 +49,10 @@ class UserRoleRepository extends BaseRepository
     public function createUserRole(array $data): ?UserRole
     {
         $uuid = $this->create($data);
-        return $this->findByUuid($uuid);
+        return $this->findUserRoleByUuid($uuid);
     }
 
-    public function findByUuid(string $uuid): ?UserRole
+    public function findUserRoleByUuid(string $uuid): ?UserRole
     {
         $result = $this->db->select($this->table, $this->defaultFields)
             ->where(['uuid' => $uuid])
@@ -82,10 +82,8 @@ class UserRoleRepository extends BaseRepository
         }
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $query->orderBy(['created_at' => 'DESC']);
@@ -126,10 +124,8 @@ class UserRoleRepository extends BaseRepository
             ]);
 
         // Check if role is still active (not expired)
-        $query->where([
-            'expires_at' => ['>=', date('Y-m-d H:i:s')],
-            'OR' => ['expires_at' => null]
-        ]);
+        $currentTime = $this->db->getDriver()->formatDateTime();
+        $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
 
         $results = $query->get();
 
@@ -157,10 +153,8 @@ class UserRoleRepository extends BaseRepository
             ->where(['user_uuid' => $userUuid]);
 
         // Only get active (non-expired) roles
-        $query->where([
-            'expires_at' => ['>=', date('Y-m-d H:i:s')],
-            'OR' => ['expires_at' => null]
-        ]);
+        $currentTime = $this->db->getDriver()->formatDateTime();
+        $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
 
         $results = $query->get();
         $userRoles = array_map(fn($row) => new UserRole($row), $results);
@@ -217,8 +211,10 @@ class UserRoleRepository extends BaseRepository
 
     public function findExpiredRoles(): array
     {
+        $currentTime = $this->db->getDriver()->formatDateTime();
         $results = $this->db->select($this->table, $this->defaultFields)
-            ->where(['expires_at' => ['<', date('Y-m-d H:i:s')]])
+            ->whereNotNull('expires_at')
+            ->whereLessThan('expires_at', $currentTime)
             ->orderBy(['expires_at' => 'ASC'])
             ->get();
 
@@ -227,14 +223,25 @@ class UserRoleRepository extends BaseRepository
 
     public function cleanupExpiredRoles(): int
     {
+        $currentTime = $this->db->getDriver()->formatDateTime();
+
         $expiredCount = $this->db->select($this->table, ['COUNT(*) as count'])
-            ->where(['expires_at' => ['<', date('Y-m-d H:i:s')]])
+            ->whereNotNull('expires_at')
+            ->whereLessThan('expires_at', $currentTime)
             ->get();
 
         $count = (int)($expiredCount[0]['count'] ?? 0);
 
         if ($count > 0) {
-            $this->db->delete($this->table, ['expires_at' => ['<', date('Y-m-d H:i:s')]]);
+            // Get expired role UUIDs and delete them individually
+            $deleteQuery = $this->db->select($this->table, ['uuid'])
+                ->whereNotNull('expires_at')
+                ->whereLessThan('expires_at', $currentTime);
+
+            $expiredUuids = array_column($deleteQuery->get(), 'uuid');
+            if (!empty($expiredUuids)) {
+                $this->bulkDelete($expiredUuids);
+            }
         }
 
         return $count;
@@ -256,10 +263,8 @@ class UserRoleRepository extends BaseRepository
             ->where(['role_uuid' => $roleUuid]);
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $results = $query->get();
@@ -272,10 +277,8 @@ class UserRoleRepository extends BaseRepository
             ->where(['user_uuid' => $userUuid]);
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $result = $query->get();
@@ -295,15 +298,150 @@ class UserRoleRepository extends BaseRepository
         }
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $query->orderBy(['created_at' => 'DESC']);
 
         $results = $query->get();
         return array_map(fn($row) => new UserRole($row), $results);
+    }
+
+    /**
+     * Get paginated user role history
+     *
+     * @param string $userUuid User UUID to get history for
+     * @param array $filters Additional filters
+     * @param int $page Page number (1-based)
+     * @param int $perPage Number of items per page
+     * @return array Paginated results with metadata
+     */
+    public function getUserRoleHistoryPaginated(
+        string $userUuid,
+        array $filters = [],
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+        // Start with base query
+        $query = $this->db->select($this->table, $this->defaultFields)
+            ->where(['user_uuid' => $userUuid]);
+
+        // Apply filters
+        if (isset($filters['exclude_deleted']) && $filters['exclude_deleted']) {
+            $query->whereNull('deleted_at');
+        }
+
+        if (isset($filters['role_uuid'])) {
+            $query->where(['role_uuid' => $filters['role_uuid']]);
+        }
+
+        if (isset($filters['granted_by'])) {
+            $query->where(['granted_by' => $filters['granted_by']]);
+        }
+
+        // Store active_only filter for post-processing
+        $filterActiveOnly = isset($filters['active_only']) && $filters['active_only'];
+
+        // Order by most recent first
+        $query->orderBy(['created_at' => 'DESC']);
+
+        // Use QueryBuilder's pagination method
+        $result = $query->paginate($page, $perPage);
+
+        // Transform data to include role information
+        $transformedData = [];
+        $currentTime = $this->db->getDriver()->formatDateTime();
+
+        // First pass: collect valid user roles and their role UUIDs
+        $validUserRoles = [];
+        $roleUuids = [];
+        foreach ($result['data'] as $row) {
+            $userRole = new UserRole($row);
+
+            // Apply active_only filter if needed
+            if ($filterActiveOnly) {
+                $expiresAt = $userRole->getExpiresAt();
+                if ($expiresAt !== null && $expiresAt < $currentTime) {
+                    continue; // Skip expired roles
+                }
+            }
+
+            $validUserRoles[] = ['row' => $row, 'userRole' => $userRole];
+            $roleUuids[] = $row['role_uuid'];
+        }
+
+        // Fetch all role data in a single query to avoid N+1 problem
+        $rolesMap = [];
+        if (!empty($roleUuids)) {
+            $roleUuids = array_unique($roleUuids); // Remove duplicates
+            $roles = $this->db->select('roles', ['uuid', 'name', 'slug', 'description'])
+                ->whereIn('uuid', $roleUuids)
+                ->get();
+
+            // Create a map for quick lookup
+            foreach ($roles as $role) {
+                $rolesMap[$role['uuid']] = $role;
+            }
+        }
+
+        // Second pass: build final transformed data with role information
+        foreach ($validUserRoles as $item) {
+            $row = $item['row'];
+            $userRole = $item['userRole'];
+            $roleData = $rolesMap[$row['role_uuid']] ?? null;
+
+            $transformedData[] = [
+                'uuid' => $userRole->getUuid(),
+                'user_uuid' => $userRole->getUserUuid(),
+                'role_uuid' => $userRole->getRoleUuid(),
+                'scope' => $userRole->getScope(),
+                'granted_by' => $userRole->getGrantedBy(),
+                'expires_at' => $userRole->getExpiresAt(),
+                'created_at' => $userRole->getCreatedAt(),
+                'deleted_at' => $row['deleted_at'] ?? null,
+                'role' => $roleData ? [
+                    'name' => $roleData['name'],
+                    'slug' => $roleData['slug'],
+                    'description' => $roleData['description']
+                ] : null
+            ];
+        }
+
+        return [
+            'data' => $transformedData,
+            'pagination' => $result['pagination']
+        ];
+    }
+
+    /**
+     * Get user roles for multiple users efficiently
+     *
+     * @param array $userUuids Array of user UUIDs
+     * @param array $scope Optional scope filter
+     * @return array Array of UserRole objects
+     */
+    public function getBulkUserRoles(array $userUuids, array $scope = []): array
+    {
+        if (empty($userUuids)) {
+            return [];
+        }
+
+        $query = $this->db->select($this->table, $this->defaultFields)
+            ->whereIn('user_uuid', $userUuids);
+
+        // Apply scope filters if provided
+        if (!empty($scope)) {
+            $query->where(['scope' => $scope]);
+        }
+
+        $results = $query->get();
+        $userRoles = [];
+
+        foreach ($results as $row) {
+            $userRoles[] = new UserRole($row);
+        }
+
+        return $userRoles;
     }
 }

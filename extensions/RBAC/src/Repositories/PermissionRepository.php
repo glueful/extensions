@@ -49,27 +49,19 @@ class PermissionRepository extends BaseRepository
     public function createPermission(array $data): ?Permission
     {
         $uuid = $this->create($data);
-        return $this->findByUuid($uuid);
+        return $this->findPermissionByUuid($uuid);
     }
 
-    public function findByUuid(string $uuid): ?Permission
+    public function findPermissionByUuid(string $uuid): ?Permission
     {
-        $result = $this->db->select($this->table, $this->defaultFields)
-            ->where(['uuid' => $uuid])
-            ->limit(1)
-            ->get();
-
-        return $result ? new Permission($result[0]) : null;
+        $result = $this->findRecordByUuid($uuid, $this->defaultFields);
+        return $result ? new Permission($result) : null;
     }
 
-    public function findBySlug(string $slug): ?Permission
+    public function findPermissionBySlug(string $slug): ?Permission
     {
-        $result = $this->db->select($this->table, $this->defaultFields)
-            ->where(['slug' => $slug])
-            ->limit(1)
-            ->get();
-
-        return $result ? new Permission($result[0]) : null;
+        $result = $this->findBySlug($slug, $this->defaultFields);
+        return $result ? new Permission($result) : null;
     }
 
     public function findByName(string $name): ?Permission
@@ -108,7 +100,7 @@ class PermissionRepository extends BaseRepository
             $query->where(['is_system' => $filters['is_system']]);
         }
 
-        $query->orderBy(['category ASC', 'name ASC']);
+        $query->orderBy(['category' => 'ASC', 'name' => 'ASC']);
 
         $results = $query->get();
         return array_map(fn($row) => new Permission($row), $results);
@@ -118,7 +110,7 @@ class PermissionRepository extends BaseRepository
     {
         $results = $this->db->select($this->table, $this->defaultFields)
             ->where(['category' => $category])
-            ->orderBy(['name ASC'])
+            ->orderBy(['name' => 'ASC'])
             ->get();
 
         return array_map(fn($row) => new Permission($row), $results);
@@ -128,7 +120,7 @@ class PermissionRepository extends BaseRepository
     {
         $results = $this->db->select($this->table, $this->defaultFields)
             ->where(['resource_type' => $resourceType])
-            ->orderBy(['category ASC', 'name ASC'])
+            ->orderBy(['category' => 'ASC', 'name' => 'ASC'])
             ->get();
 
         return array_map(fn($row) => new Permission($row), $results);
@@ -143,7 +135,7 @@ class PermissionRepository extends BaseRepository
     {
         $results = $this->db->select($this->table, ['DISTINCT category'])
             ->where(['category' => ['!=', null]])
-            ->orderBy(['category ASC'])
+            ->orderBy(['category' => 'ASC'])
             ->get();
 
         return array_column($results, 'category');
@@ -153,7 +145,7 @@ class PermissionRepository extends BaseRepository
     {
         $results = $this->db->select($this->table, ['DISTINCT resource_type'])
             ->where(['resource_type' => ['!=', null]])
-            ->orderBy(['resource_type ASC'])
+            ->orderBy(['resource_type' => 'ASC'])
             ->get();
 
         return array_column($results, 'resource_type');
@@ -233,9 +225,95 @@ class PermissionRepository extends BaseRepository
             $query->where(['is_system' => $filters['is_system']]);
         }
 
-        $query->orderBy(['category ASC', 'name ASC']);
+        $query->orderBy(['category' => 'ASC', 'name' => 'ASC']);
 
         $results = $query->get();
         return array_map(fn($row) => new Permission($row), $results);
+    }
+
+    public function findAllPaginated(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        // Build conditions array for the base paginate method
+        $conditions = [];
+
+        // Apply filters
+        // Note: permissions table doesn't have soft deletes, so exclude_deleted filter is ignored
+
+        if (isset($filters['category']) && !empty($filters['category'])) {
+            $conditions['category'] = $filters['category'];
+        }
+
+        if (isset($filters['resource_type']) && !empty($filters['resource_type'])) {
+            $conditions['resource_type'] = $filters['resource_type'];
+        }
+
+        if (isset($filters['is_system'])) {
+            $conditions['is_system'] = $filters['is_system'];
+        }
+
+        // Handle search separately since it needs LIKE queries
+        if (isset($filters['search']) && !empty($filters['search'])) {
+            $searchTerm = $filters['search'];
+
+            // Use the query method for more complex search
+            $query = $this->query()
+                ->where([
+                    'name' => ['LIKE', '%' . $searchTerm . '%'],
+                    'OR' => [
+                        'description' => ['LIKE', '%' . $searchTerm . '%'],
+                        'slug' => ['LIKE', '%' . $searchTerm . '%']
+                    ]
+                ]);
+
+            // Add other conditions to the search query
+            if (!empty($conditions)) {
+                $query->where($conditions);
+            }
+
+            $query->orderBy(['category' => 'ASC', 'name' => 'ASC']);
+
+            return $query->paginate($page, $perPage);
+        }
+
+        // Use the base repository's paginate method for simple filters
+        return $this->paginate(
+            $page,
+            $perPage,
+            $conditions,
+            ['category' => 'ASC', 'name' => 'ASC']
+        );
+    }
+
+    public function getUsersWithPermission(string $permissionUuid): array
+    {
+        $results = $this->db->select('user_permissions', ['user_uuid'])
+            ->where(['permission_uuid' => $permissionUuid])
+            ->get();
+
+        return array_column($results, 'user_uuid');
+    }
+
+    /**
+     * Find permissions by multiple UUIDs efficiently
+     *
+     * @param array $uuids Array of permission UUIDs
+     * @return array Array of Permission objects
+     */
+    public function findByUuids(array $uuids): array
+    {
+        if (empty($uuids)) {
+            return [];
+        }
+
+        $results = $this->db->select($this->table, $this->defaultFields)
+            ->whereIn('uuid', $uuids)
+            ->get();
+
+        $permissions = [];
+        foreach ($results as $row) {
+            $permissions[] = new Permission($row);
+        }
+
+        return $permissions;
     }
 }

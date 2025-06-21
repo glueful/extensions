@@ -54,7 +54,7 @@ class PermissionAssignmentService
         string $resource = '*',
         array $options = []
     ): bool {
-        $permission = $this->permissionRepository->findBySlug($permissionSlug);
+        $permission = $this->permissionRepository->findPermissionBySlug($permissionSlug);
         if (!$permission) {
             throw new \InvalidArgumentException('Permission not found: ' . $permissionSlug);
         }
@@ -85,7 +85,7 @@ class PermissionAssignmentService
         try {
             $result = $this->userPermissionRepository->create($data);
             return !empty($result);
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             return false;
         }
     }
@@ -95,7 +95,7 @@ class PermissionAssignmentService
      */
     public function revokePermissionFromUser(string $userUuid, string $permissionSlug): bool
     {
-        $permission = $this->permissionRepository->findBySlug($permissionSlug);
+        $permission = $this->permissionRepository->findPermissionBySlug($permissionSlug);
         if (!$permission) {
             return false; // Permission doesn't exist, consider it revoked
         }
@@ -197,10 +197,32 @@ class PermissionAssignmentService
     public function getUserDirectPermissions(string $userUuid, array $filters = []): array
     {
         $userPermissions = $this->userPermissionRepository->findByUser($userUuid, $filters);
-        $permissions = [];
 
+        if (empty($userPermissions)) {
+            return [];
+        }
+
+        // Extract permission UUIDs for bulk fetching to avoid N+1 queries
+        $permissionUuids = array_map(function ($userPermission) {
+            return $userPermission->getPermissionUuid();
+        }, $userPermissions);
+
+        // Fetch all permissions in a single query
+        $permissionsMap = [];
+        if (!empty($permissionUuids)) {
+            $permissionUuids = array_unique($permissionUuids); // Remove duplicates
+            $permissions = $this->permissionRepository->findByUuids($permissionUuids);
+
+            // Create a map for quick lookup
+            foreach ($permissions as $permission) {
+                $permissionsMap[$permission->getUuid()] = $permission;
+            }
+        }
+
+        // Build the result array with permission data
+        $permissions = [];
         foreach ($userPermissions as $userPermission) {
-            $permission = $this->permissionRepository->findByUuid($userPermission->getPermissionUuid());
+            $permission = $permissionsMap[$userPermission->getPermissionUuid()] ?? null;
             if ($permission) {
                 $permissions[] = [
                     'permission' => $permission,
@@ -271,7 +293,7 @@ class PermissionAssignmentService
         string $resource = '*',
         array $context = []
     ): bool {
-        $permission = $this->permissionRepository->findBySlug($permissionSlug);
+        $permission = $this->permissionRepository->findPermissionBySlug($permissionSlug);
         if (!$permission) {
             return false;
         }
@@ -317,7 +339,7 @@ class PermissionAssignmentService
      */
     public function updatePermission(string $uuid, array $data): bool
     {
-        $permission = $this->permissionRepository->findByUuid($uuid);
+        $permission = $this->permissionRepository->findPermissionByUuid($uuid);
         if (!$permission) {
             throw new \InvalidArgumentException('Permission not found');
         }
@@ -358,7 +380,7 @@ class PermissionAssignmentService
      */
     public function deletePermission(string $uuid, bool $force = false): bool
     {
-        $permission = $this->permissionRepository->findByUuid($uuid);
+        $permission = $this->permissionRepository->findPermissionByUuid($uuid);
         if (!$permission) {
             throw new \InvalidArgumentException('Permission not found');
         }
@@ -440,7 +462,7 @@ class PermissionAssignmentService
 
         // Check each role for the permission
         foreach ($userRoles as $userRole) {
-            $role = $this->roleRepository->findByUuid($userRole->getRoleUuid());
+            $role = $this->roleRepository->findRoleByUuid($userRole->getRoleUuid());
             if (!$role) {
                 continue;
             }
@@ -470,7 +492,7 @@ class PermissionAssignmentService
         $userRoles = $this->userRoleRepository->getUserRoles($userUuid, $scope);
 
         foreach ($userRoles as $userRole) {
-            $role = $this->roleRepository->findByUuid($userRole->getRoleUuid());
+            $role = $this->roleRepository->findRoleByUuid($userRole->getRoleUuid());
             if (!$role) {
                 continue;
             }
@@ -548,7 +570,7 @@ class PermissionAssignmentService
 
         $permissions = [];
         foreach ($rolePermissions as $rolePermission) {
-            $permission = $this->permissionRepository->findByUuid($rolePermission->getPermissionUuid());
+            $permission = $this->permissionRepository->findPermissionByUuid($rolePermission->getPermissionUuid());
             if ($permission) {
                 $permissions[] = [
                     'permission_slug' => $permission->getSlug(),

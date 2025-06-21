@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Glueful\Extensions;
 
 use Glueful\Extensions\EmailNotification\EmailNotificationProvider;
+use Glueful\Extensions\EmailNotification\EmailNotificationServiceProvider;
 use Glueful\Notifications\Services\ChannelManager;
 use Glueful\Logging\LogManager;
 
@@ -45,21 +46,25 @@ class EmailNotification extends \Glueful\Extensions
      * Initialize extension
      *
      * Sets up the email notification provider and registers it with
-     * the notification system.
+     * the notification system via DI container.
      *
      * @return void
      */
     public static function initialize(): void
     {
-        // Initialize logger
-        self::$logger = new LogManager('email_notification');
-
         try {
+            // Get the DI container
+            $container = app();
+
+            // Initialize logger
+            self::$logger = $container->get(LogManager::class);
+
             // Load configuration
             self::loadConfig();
 
-            // Create and initialize the provider
-            self::$provider = new EmailNotificationProvider(self::$config);
+            // Get the provider from the container (registered by service provider)
+            self::$provider = $container->get(EmailNotificationProvider::class);
+
             if (!self::$provider->initialize(self::$config)) {
                 self::$logger->error('Failed to initialize email notification provider');
             }
@@ -76,35 +81,6 @@ class EmailNotification extends \Glueful\Extensions
         }
     }
 
-    /**
-     * Register extension-provided services
-     *
-     * Registers the email notification channel with the channel manager.
-     *
-     * @return void
-     */
-    public static function registerServices($container = null): void
-    {
-        try {
-            if (self::$provider) {
-                // Get the channel manager directly without using Container
-                $channelManager = new \Glueful\Notifications\Services\ChannelManager();
-
-                // Register the provider with the channel manager
-                self::$provider->register($channelManager);
-
-                if (self::$logger) {
-                    self::$logger->info('EmailNotification provider registered successfully');
-                }
-            }
-        } catch (\Exception $e) {
-            if (self::$logger) {
-                self::$logger->error('Error registering EmailNotification services: ' . $e->getMessage());
-            } else {
-                error_log('Error registering EmailNotification services: ' . $e->getMessage());
-            }
-        }
-    }
 
     /**
      * Register middleware if needed
@@ -127,7 +103,7 @@ class EmailNotification extends \Glueful\Extensions
         $defaultConfig = require __DIR__ . '/src/config.php';
 
         // Try to load main mail config
-        $mailConfig = config('mail') ?? [];
+        $mailConfig = config('services.mail') ?? [];
 
         // Merge configurations with mail config taking precedence
         self::$config = array_merge($defaultConfig, $mailConfig);
@@ -262,7 +238,8 @@ class EmailNotification extends \Glueful\Extensions
 
         // Check notifications channel manager
         try {
-            $channelManager = new ChannelManager();
+            $container = app();
+            $channelManager = $container->get(ChannelManager::class);
             if (!$channelManager->hasChannel('email')) {
                 $healthy = false;
                 $issues[] = 'Email channel not registered with notification system';
@@ -324,5 +301,15 @@ class EmailNotification extends \Glueful\Extensions
     public static function getProvider(): ?EmailNotificationProvider
     {
         return self::$provider;
+    }
+
+    /**
+     * Get the service provider for this extension
+     *
+     * @return \Glueful\DI\Interfaces\ServiceProviderInterface
+     */
+    public static function getServiceProvider(): \Glueful\DI\Interfaces\ServiceProviderInterface
+    {
+        return new EmailNotificationServiceProvider();
     }
 }

@@ -9,6 +9,7 @@ use Glueful\Extensions\RBAC\Services\RoleService;
 use Glueful\Extensions\RBAC\Repositories\RoleRepository;
 use Glueful\Exceptions\NotFoundException;
 use Glueful\Helpers\DatabaseConnectionTrait;
+use Glueful\Constants\ErrorCodes;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -50,7 +51,8 @@ class RoleController
             $level = $request->query->get('level', '');
             $showTree = filter_var($request->query->get('tree', false), FILTER_VALIDATE_BOOLEAN);
 
-            $filters = ['exclude_deleted' => true];
+            $includeDeleted = filter_var($request->query->get('include_deleted', false), FILTER_VALIDATE_BOOLEAN);
+            $filters = ['exclude_deleted' => !$includeDeleted];
             if ($search) {
                 $filters['search'] = $search;
             }
@@ -70,7 +72,7 @@ class RoleController
 
             return Response::ok($roles, 'Roles retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -86,12 +88,12 @@ class RoleController
         try {
             $uuid = $params['uuid'] ?? '';
 
-            $role = $this->roleRepository->findByUuid($uuid);
+            $role = $this->roleRepository->findRecordByUuid($uuid);
             if (!$role) {
                 throw new NotFoundException('Role not found');
             }
 
-            $roleData = $role->toArray();
+            $roleData = $role;
             $roleData['hierarchy'] = $this->roleService->getRoleHierarchy($uuid);
             $roleData['children'] = $this->roleRepository->findChildren($uuid);
 
@@ -102,7 +104,7 @@ class RoleController
         } catch (NotFoundException $e) {
             return Response::notFound($e->getMessage())->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -121,20 +123,20 @@ class RoleController
             if (empty($data['name']) || empty($data['slug'])) {
                 return Response::error(
                     'Role name and slug are required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
             $role = $this->roleService->createRole($data);
             if (!$role) {
-                return Response::error('Failed to create role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to create role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::created($role->toArray(), 'Role created successfully')->send();
         } catch (\InvalidArgumentException $e) {
-            return Response::error($e->getMessage(), Response::HTTP_BAD_REQUEST)->send();
+            return Response::error($e->getMessage(), ErrorCodes::BAD_REQUEST)->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -154,15 +156,15 @@ class RoleController
 
             $updated = $this->roleService->updateRole($uuid, $data);
             if (!$updated) {
-                return Response::error('Failed to update role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to update role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
-            $role = $this->roleRepository->findByUuid($uuid);
-            return Response::ok($role->toArray(), 'Role updated successfully')->send();
+            $role = $this->roleRepository->findRecordByUuid($uuid);
+            return Response::ok($role, 'Role updated successfully')->send();
         } catch (\InvalidArgumentException $e) {
-            return Response::error($e->getMessage(), Response::HTTP_BAD_REQUEST)->send();
+            return Response::error($e->getMessage(), ErrorCodes::BAD_REQUEST)->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -182,14 +184,14 @@ class RoleController
 
             $deleted = $this->roleService->deleteRole($uuid, $force);
             if (!$deleted) {
-                return Response::error('Failed to delete role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to delete role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::ok(null, 'Role deleted successfully')->send();
         } catch (\InvalidArgumentException $e) {
-            return Response::error($e->getMessage(), Response::HTTP_BAD_REQUEST)->send();
+            return Response::error($e->getMessage(), ErrorCodes::BAD_REQUEST)->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -210,7 +212,7 @@ class RoleController
             if (empty($data['user_uuid'])) {
                 return Response::error(
                     'User UUID is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -222,14 +224,14 @@ class RoleController
 
             $assigned = $this->roleService->assignRoleToUser($data['user_uuid'], $roleUuid, $options);
             if (!$assigned) {
-                return Response::error('Failed to assign role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to assign role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::ok(null, 'Role assigned successfully')->send();
         } catch (\InvalidArgumentException $e) {
-            return Response::error($e->getMessage(), Response::HTTP_BAD_REQUEST)->send();
+            return Response::error($e->getMessage(), ErrorCodes::BAD_REQUEST)->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -250,18 +252,18 @@ class RoleController
             if (empty($data['user_uuid'])) {
                 return Response::error(
                     'User UUID is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
             $revoked = $this->roleService->revokeRoleFromUser($data['user_uuid'], $roleUuid);
             if (!$revoked) {
-                return Response::error('Failed to revoke role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to revoke role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::ok(null, 'Role revoked successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -280,7 +282,7 @@ class RoleController
             $page = (int) $request->query->get('page', 1);
             $perPage = (int) $request->query->get('per_page', 25);
 
-            $role = $this->roleRepository->findByUuid($uuid);
+            $role = $this->roleRepository->findRecordByUuid($uuid);
             if (!$role) {
                 throw new NotFoundException('Role not found');
             }
@@ -291,7 +293,7 @@ class RoleController
         } catch (NotFoundException $e) {
             return Response::notFound($e->getMessage())->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -307,33 +309,32 @@ class RoleController
         try {
             $stats = [];
 
-            $totalRoles = $this->getQueryBuilder()->select('roles', ['COUNT(*) as total'])
-                ->where(['deleted_at' => null])
-                ->get();
-            $stats['total_roles'] = $totalRoles[0]['total'] ?? 0;
+            $stats['total_roles'] = $this->getQueryBuilder()->count('roles', ['deleted_at' => null]);
+            $stats['active_roles'] = $this->getQueryBuilder()->count('roles', [
+                'status' => 'active',
+                'deleted_at' => null
+            ]);
+            $stats['system_roles'] = $this->getQueryBuilder()->count('roles', [
+                'is_system' => true,
+                'deleted_at' => null
+            ]);
 
-            $activeRoles = $this->getQueryBuilder()->select('roles', ['COUNT(*) as total'])
-                ->where(['status' => 'active', 'deleted_at' => null])
-                ->get();
-            $stats['active_roles'] = $activeRoles[0]['total'] ?? 0;
-
-            $systemRoles = $this->getQueryBuilder()->select('roles', ['COUNT(*) as total'])
-                ->where(['is_system' => true, 'deleted_at' => null])
-                ->get();
-            $stats['system_roles'] = $systemRoles[0]['total'] ?? 0;
-
-            $rolesByLevel = $this->getQueryBuilder()->select('roles', ['level', 'COUNT(*) as count'])
+            // Get roles by level using database-agnostic methods
+            $rolesByLevel = $this->getQueryBuilder()
+                ->select('roles', ['level'])
                 ->where(['deleted_at' => null])
                 ->groupBy(['level'])
                 ->get();
             $stats['by_level'] = [];
             foreach ($rolesByLevel as $stat) {
-                $stats['by_level'][$stat['level']] = $stat['count'];
+                $level = $stat['level'];
+                $stats['by_level'][$level] = $this->getQueryBuilder()
+                    ->count('roles', ['level' => $level, 'deleted_at' => null]);
             }
 
             return Response::ok($stats, 'Role statistics retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -352,7 +353,7 @@ class RoleController
             if (empty($data['action']) || empty($data['role_ids'])) {
                 return Response::error(
                     'Action and role_ids are required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -364,7 +365,7 @@ class RoleController
 
             foreach ($data['role_ids'] as $roleUuid) {
                 try {
-                    $role = $this->roleRepository->findByUuid($roleUuid);
+                    $role = $this->roleRepository->findRecordByUuid($roleUuid);
                     if (!$role) {
                         $results['failed']++;
                         $results['errors'][] = "Role {$roleUuid} not found";
@@ -398,7 +399,7 @@ class RoleController
                 "Bulk operation completed: {$results['success']} succeeded, {$results['failed']} failed"
             )->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 }

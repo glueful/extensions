@@ -8,8 +8,8 @@ use Glueful\Http\Response;
 use Glueful\Extensions\RBAC\Services\RoleService;
 use Glueful\Extensions\RBAC\Services\PermissionAssignmentService;
 use Glueful\Extensions\RBAC\Repositories\UserRoleRepository;
-use Glueful\Exceptions\NotFoundException;
 use Glueful\Helpers\DatabaseConnectionTrait;
+use Glueful\Constants\ErrorCodes;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -60,7 +60,7 @@ class UserRoleController
 
             return Response::ok($roles, 'User roles retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -81,7 +81,7 @@ class UserRoleController
             if (empty($data['role_uuids'])) {
                 return Response::error(
                     'Role UUIDs array is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -117,7 +117,7 @@ class UserRoleController
                 "Role assignment completed: {$results['success']} succeeded, {$results['failed']} failed"
             )->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -136,12 +136,12 @@ class UserRoleController
 
             $revoked = $this->roleService->revokeRoleFromUser($userUuid, $roleUuid);
             if (!$revoked) {
-                return Response::error('Failed to revoke role', Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+                return Response::error('Failed to revoke role', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::ok(null, 'Role revoked successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -162,7 +162,7 @@ class UserRoleController
             if (!isset($data['role_uuids']) || !is_array($data['role_uuids'])) {
                 return Response::error(
                     'Role UUIDs array is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -211,7 +211,7 @@ class UserRoleController
                 "Roles updated: {$results['added']} added, {$results['removed']} removed"
             )->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -232,7 +232,7 @@ class UserRoleController
             if (empty($data['role_slug'])) {
                 return Response::error(
                     'Role slug is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -246,7 +246,7 @@ class UserRoleController
                 'scope' => $scope
             ], 'Role check completed')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -270,13 +270,16 @@ class UserRoleController
             $overview = [
                 'user_uuid' => $userUuid,
                 'roles' => $this->roleService->getUserRoles($userUuid, $scope),
-                'direct_permissions' => $this->permissionService->getUserDirectPermissions($userUuid, ['active_only' => true]),
+                'direct_permissions' => $this->permissionService->getUserDirectPermissions(
+                    $userUuid,
+                    ['active_only' => true]
+                ),
                 'effective_permissions' => $this->permissionService->getUserEffectivePermissions($userUuid, $scope)
             ];
 
             return Response::ok($overview, 'User access overview retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -305,7 +308,7 @@ class UserRoleController
 
             return Response::ok($history, 'User role history retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -326,7 +329,7 @@ class UserRoleController
             if (empty($data['user_uuids'])) {
                 return Response::error(
                     'User UUIDs array is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -362,7 +365,7 @@ class UserRoleController
                 "Bulk role assignment completed: {$results['success']} succeeded, {$results['failed']} failed"
             )->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -383,7 +386,7 @@ class UserRoleController
             if (empty($data['user_uuids'])) {
                 return Response::error(
                     'User UUIDs array is required',
-                    Response::HTTP_BAD_REQUEST
+                    ErrorCodes::BAD_REQUEST
                 )->send();
             }
 
@@ -413,7 +416,7 @@ class UserRoleController
                 "Bulk role revocation completed: {$results['success']} succeeded, {$results['failed']} failed"
             )->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -434,15 +437,18 @@ class UserRoleController
                 ->get();
             $stats['total_assignments'] = $totalAssignments[0]['total'] ?? 0;
 
+            $currentTime = date('Y-m-d H:i:s');
             $activeAssignments = $this->getQueryBuilder()->select('user_roles', ['COUNT(*) as total'])
                 ->where(['deleted_at' => null])
-                ->whereRaw('(expires_at IS NULL OR expires_at > NOW())')
+                ->whereNull('expires_at')
+                ->orWhereGreaterThan('expires_at', $currentTime)
                 ->get();
             $stats['active_assignments'] = $activeAssignments[0]['total'] ?? 0;
 
             $expiredAssignments = $this->getQueryBuilder()->select('user_roles', ['COUNT(*) as total'])
                 ->where(['deleted_at' => null])
-                ->whereRaw('expires_at IS NOT NULL AND expires_at <= NOW()')
+                ->whereNotNull('expires_at')
+                ->whereLessThanOrEqual('expires_at', $currentTime)
                 ->get();
             $stats['expired_assignments'] = $expiredAssignments[0]['total'] ?? 0;
 
@@ -453,7 +459,7 @@ class UserRoleController
 
             return Response::ok($stats, 'User role statistics retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 
@@ -477,7 +483,7 @@ class UserRoleController
 
             return Response::ok($results, "Cleaned up {$count} expired role assignments")->send();
         } catch (\Exception $e) {
-            return Response::error($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+            return Response::error($e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }
 }

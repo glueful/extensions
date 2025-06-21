@@ -49,10 +49,10 @@ class UserPermissionRepository extends BaseRepository
     public function createUserPermission(array $data): ?UserPermission
     {
         $uuid = $this->create($data);
-        return $this->findByUuid($uuid);
+        return $this->findUserPermissionByUuid($uuid);
     }
 
-    public function findByUuid(string $uuid): ?UserPermission
+    public function findUserPermissionByUuid(string $uuid): ?UserPermission
     {
         $result = $this->db->select($this->table, $this->defaultFields)
             ->where(['uuid' => $uuid])
@@ -82,10 +82,8 @@ class UserPermissionRepository extends BaseRepository
         }
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $query->orderBy(['created_at' => 'DESC']);
@@ -126,10 +124,8 @@ class UserPermissionRepository extends BaseRepository
             ]);
 
         // Check if permission is still active (not expired)
-        $query->where([
-            'expires_at' => ['>=', date('Y-m-d H:i:s')],
-            'OR' => ['expires_at' => null]
-        ]);
+        $currentTime = $this->db->getDriver()->formatDateTime();
+        $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
 
         $results = $query->get();
 
@@ -157,10 +153,8 @@ class UserPermissionRepository extends BaseRepository
             ->where(['user_uuid' => $userUuid]);
 
         // Only get active (non-expired) permissions
-        $query->where([
-            'expires_at' => ['>=', date('Y-m-d H:i:s')],
-            'OR' => ['expires_at' => null]
-        ]);
+        $currentTime = $this->db->getDriver()->formatDateTime();
+        $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
 
         $results = $query->get();
         $userPermissions = array_map(fn($row) => new UserPermission($row), $results);
@@ -190,8 +184,9 @@ class UserPermissionRepository extends BaseRepository
 
     public function findExpiredPermissions(): array
     {
+        $currentTime = $this->db->getDriver()->formatDateTime();
         $results = $this->db->select($this->table, $this->defaultFields)
-            ->where(['expires_at' => ['<', date('Y-m-d H:i:s')]])
+            ->whereLessThan('expires_at', $currentTime)
             ->orderBy(['expires_at' => 'ASC'])
             ->get();
 
@@ -200,14 +195,25 @@ class UserPermissionRepository extends BaseRepository
 
     public function cleanupExpiredPermissions(): int
     {
+        $currentTime = $this->db->getDriver()->formatDateTime();
+
         $expiredCount = $this->db->select($this->table, ['COUNT(*) as count'])
-            ->where(['expires_at' => ['<', date('Y-m-d H:i:s')]])
+            ->whereNotNull('expires_at')
+            ->whereLessThan('expires_at', $currentTime)
             ->get();
 
         $count = (int)($expiredCount[0]['count'] ?? 0);
 
         if ($count > 0) {
-            $this->db->delete($this->table, ['expires_at' => ['<', date('Y-m-d H:i:s')]]);
+            // Create a temporary query builder for delete
+            $deleteQuery = $this->db->select($this->table, ['uuid'])
+                ->whereNotNull('expires_at')
+                ->whereLessThan('expires_at', $currentTime);
+
+            $expiredUuids = array_column($deleteQuery->get(), 'uuid');
+            if (!empty($expiredUuids)) {
+                $this->bulkDelete($expiredUuids);
+            }
         }
 
         return $count;
@@ -229,10 +235,8 @@ class UserPermissionRepository extends BaseRepository
             ->where(['user_uuid' => $userUuid]);
 
         if (isset($filters['active_only']) && $filters['active_only']) {
-            $query->where([
-                'expires_at' => ['>=', date('Y-m-d H:i:s')],
-                'OR' => ['expires_at' => null]
-            ]);
+            $currentTime = $this->db->getDriver()->formatDateTime();
+            $query->whereGreaterThanOrEqual('expires_at', $currentTime)->orWhereNull('expires_at');
         }
 
         $result = $query->get();

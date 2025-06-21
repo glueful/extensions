@@ -10,6 +10,9 @@ use Glueful\Extensions\RBAC\Repositories\PermissionRepository;
 use Glueful\Extensions\RBAC\Repositories\UserRoleRepository;
 use Glueful\Extensions\RBAC\Repositories\UserPermissionRepository;
 use Glueful\Extensions\RBAC\Repositories\RolePermissionRepository;
+use Glueful\Extensions\RBAC\Services\RoleService;
+use Glueful\Extensions\RBAC\Services\PermissionAssignmentService;
+use Glueful\Extensions\RBAC\Services\AuditService;
 
 /**
  * RBAC Service Provider
@@ -77,6 +80,29 @@ class RBACServiceProvider implements ServiceProviderInterface
         $container->bind('rbac.audit_service', function () {
             return new AuditService();
         });
+
+        // Register controllers
+        $container->bind('Glueful\\Extensions\\RBAC\\Controllers\\PermissionController', function ($container) {
+            return new \Glueful\Extensions\RBAC\Controllers\PermissionController(
+                $container->get('rbac.permission_service'),
+                $container->get('rbac.repository.permission')
+            );
+        });
+
+        $container->bind('Glueful\\Extensions\\RBAC\\Controllers\\RoleController', function ($container) {
+            return new \Glueful\Extensions\RBAC\Controllers\RoleController(
+                $container->get('rbac.role_service'),
+                $container->get('rbac.repository.role')
+            );
+        });
+
+        $container->bind('Glueful\\Extensions\\RBAC\\Controllers\\UserRoleController', function ($container) {
+            return new \Glueful\Extensions\RBAC\Controllers\UserRoleController(
+                $container->get('rbac.role_service'),
+                $container->get('rbac.permission_service'),
+                $container->get('rbac.repository.user_role')
+            );
+        });
     }
 
     /**
@@ -84,14 +110,33 @@ class RBACServiceProvider implements ServiceProviderInterface
      */
     public function boot(ContainerInterface $container): void
     {
-        // Initialize permission provider
-        $permissionProvider = $container->get('rbac.permission_provider');
-        $permissionProvider->initialize();
+        try {
+            // Get permission provider
+            $permissionProvider = $container->get('rbac.permission_provider');
 
-        // Register global permission provider
-        if ($container->has('permission.manager')) {
-            $permissionManager = $container->get('permission.manager');
-            $permissionManager->registerProviders(['rbac' => $permissionProvider]);
+            // Load RBAC configuration
+            $config = $this->loadConfiguration();
+
+            // Initialize the provider with configuration
+            $permissionProvider->initialize($config);
+
+            // Get PermissionManager from container
+            if ($container->has('permission.manager')) {
+                $permissionManager = $container->get('permission.manager');
+
+                // Register the provider
+                $permissionManager->registerProviders(['rbac' => $permissionProvider]);
+
+                // Set as active provider
+                $permissionManager->setProvider($permissionProvider, $config);
+
+                error_log("RBAC: Successfully registered and activated permission provider");
+            } else {
+                error_log("RBAC: Permission manager not found in container");
+            }
+        } catch (\Exception $e) {
+            error_log("RBAC: Failed to initialize permission provider: " . $e->getMessage());
+            error_log("RBAC: Stack trace: " . $e->getTraceAsString());
         }
     }
 
@@ -118,5 +163,32 @@ class RBACServiceProvider implements ServiceProviderInterface
                 'core_permissions'
             ]
         ];
+    }
+
+    /**
+     * Load RBAC configuration
+     */
+    private function loadConfiguration(): array
+    {
+        $defaultConfig = [
+            'cache_enabled' => true,
+            'cache_ttl' => 3600,
+            'cache_prefix' => 'rbac:',
+            'enable_hierarchy' => true,
+            'enable_inheritance' => true,
+            'max_hierarchy_depth' => 10,
+            'protect_system_roles' => true,
+            'audit_enabled' => true,
+            'support_expiry' => true
+        ];
+
+        // Try to load from config file
+        $configFile = dirname(__DIR__, 2) . '/src/config.php';
+        if (file_exists($configFile)) {
+            $fileConfig = require $configFile;
+            return array_merge($defaultConfig, $fileConfig);
+        }
+
+        return $defaultConfig;
     }
 }

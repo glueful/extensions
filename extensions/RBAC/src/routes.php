@@ -66,6 +66,48 @@ Router::group('/rbac', function () use ($container) {
         });
 
         /**
+         * @route GET /rbac/roles/stats
+         * @tag RBAC Roles
+         * @summary Get role statistics
+         * @description Retrieves comprehensive statistics about roles
+         * @requiresAuth true
+         * @response 200 application/json "Role statistics retrieved successfully" {
+         *   total_roles:integer="Total number of roles",
+         *   active_roles:integer="Number of active roles",
+         *   system_roles:integer="Number of system roles",
+         *   by_level:object="Roles grouped by hierarchy level"
+         * }
+         * @response 403 application/json "Permission denied"
+         */
+        Router::get('/stats', function (Request $request) use ($container) {
+            $roleController = $container->get(RoleController::class);
+            return $roleController->stats($request);
+        });
+
+        /**
+         * @route POST /rbac/roles/bulk
+         * @tag RBAC Roles
+         * @summary Bulk role operations
+         * @description Performs bulk operations on multiple roles
+         * @requiresAuth true
+         * @requestBody action:string="Action to perform (delete, activate, deactivate)"
+         *              role_ids:array=[string="Role UUIDs"]
+         *              force:boolean="Force operation even with dependencies"
+         *              {required=action,role_ids}
+         * @response 200 application/json "Bulk operation completed" {
+         *   success:integer="Number of successful operations",
+         *   failed:integer="Number of failed operations",
+         *   errors:array="Error messages for failed operations"
+         * }
+         * @response 400 application/json "Invalid request format"
+         * @response 403 application/json "Permission denied"
+         */
+        Router::post('/bulk', function (Request $request) use ($container) {
+            $roleController = $container->get(RoleController::class);
+            return $roleController->bulk($request);
+        });
+
+        /**
          * @route GET /rbac/roles/{uuid}
          * @tag RBAC Roles
          * @summary Get role details
@@ -231,25 +273,6 @@ Router::group('/rbac', function () use ($container) {
         });
 
         /**
-         * @route GET /rbac/roles/stats
-         * @tag RBAC Roles
-         * @summary Get role statistics
-         * @description Retrieves comprehensive statistics about roles
-         * @requiresAuth true
-         * @response 200 application/json "Role statistics retrieved successfully" {
-         *   total_roles:integer="Total number of roles",
-         *   active_roles:integer="Number of active roles",
-         *   system_roles:integer="Number of system roles",
-         *   by_level:object="Roles grouped by hierarchy level"
-         * }
-         * @response 403 application/json "Permission denied"
-         */
-        Router::get('/stats', function (Request $request) use ($container) {
-            $roleController = $container->get(RoleController::class);
-            return $roleController->stats($request);
-        });
-
-        /**
          * @route POST /rbac/roles/bulk
          * @tag RBAC Roles
          * @summary Bulk role operations
@@ -332,6 +355,62 @@ Router::group('/rbac', function () use ($container) {
         Router::get('/', function (Request $request) use ($container) {
             $permissionController = $container->get(PermissionController::class);
             return $permissionController->index($request);
+        });
+
+        /**
+         * @route GET /rbac/permissions/stats
+         * @tag RBAC Permissions
+         * @summary Get permission statistics
+         * @description Retrieves comprehensive statistics about permissions
+         * @requiresAuth true
+         * @response 200 application/json "Permission statistics retrieved successfully"
+         * @response 403 application/json "Permission denied"
+         */
+        Router::get('/stats', function (Request $request) use ($container) {
+            $permissionController = $container->get(PermissionController::class);
+            return $permissionController->stats($request);
+        });
+
+        /**
+         * @route POST /rbac/permissions/cleanup-expired
+         * @tag RBAC Permissions
+         * @summary Cleanup expired permissions
+         * @description Removes all expired permission assignments
+         * @requiresAuth true
+         * @response 200 application/json "Expired permissions cleaned up"
+         * @response 403 application/json "Permission denied"
+         */
+        Router::post('/cleanup-expired', function (Request $request) use ($container) {
+            $permissionController = $container->get(PermissionController::class);
+            return $permissionController->cleanupExpired($request);
+        });
+
+        /**
+         * @route GET /rbac/permissions/categories
+         * @tag RBAC Permissions
+         * @summary Get permission categories
+         * @description Retrieves all available permission categories
+         * @requiresAuth true
+         * @response 200 application/json "Permission categories retrieved successfully"
+         * @response 403 application/json "Permission denied"
+         */
+        Router::get('/categories', function (Request $request) use ($container) {
+            $permissionController = $container->get(PermissionController::class);
+            return $permissionController->getCategories($request);
+        });
+
+        /**
+         * @route GET /rbac/permissions/resource-types
+         * @tag RBAC Permissions
+         * @summary Get resource types
+         * @description Retrieves all available resource types
+         * @requiresAuth true
+         * @response 200 application/json "Resource types retrieved successfully"
+         * @response 403 application/json "Permission denied"
+         */
+        Router::get('/resource-types', function (Request $request) use ($container) {
+            $permissionController = $container->get(PermissionController::class);
+            return $permissionController->getResourceTypes($request);
         });
 
         /**
@@ -488,62 +567,6 @@ Router::group('/rbac', function () use ($container) {
         Router::post('/batch-revoke', function (Request $request) use ($container) {
             $permissionController = $container->get(PermissionController::class);
             return $permissionController->batchRevoke($request);
-        });
-
-        /**
-         * @route GET /rbac/permissions/stats
-         * @tag RBAC Permissions
-         * @summary Get permission statistics
-         * @description Retrieves comprehensive statistics about permissions
-         * @requiresAuth true
-         * @response 200 application/json "Permission statistics retrieved successfully"
-         * @response 403 application/json "Permission denied"
-         */
-        Router::get('/stats', function (Request $request) use ($container) {
-            $permissionController = $container->get(PermissionController::class);
-            return $permissionController->stats($request);
-        });
-
-        /**
-         * @route POST /rbac/permissions/cleanup-expired
-         * @tag RBAC Permissions
-         * @summary Cleanup expired permissions
-         * @description Removes all expired permission assignments
-         * @requiresAuth true
-         * @response 200 application/json "Expired permissions cleaned up"
-         * @response 403 application/json "Permission denied"
-         */
-        Router::post('/cleanup-expired', function (Request $request) use ($container) {
-            $permissionController = $container->get(PermissionController::class);
-            return $permissionController->cleanupExpired($request);
-        });
-
-        /**
-         * @route GET /rbac/permissions/categories
-         * @tag RBAC Permissions
-         * @summary Get permission categories
-         * @description Retrieves all available permission categories
-         * @requiresAuth true
-         * @response 200 application/json "Permission categories retrieved successfully"
-         * @response 403 application/json "Permission denied"
-         */
-        Router::get('/categories', function (Request $request) use ($container) {
-            $permissionController = $container->get(PermissionController::class);
-            return $permissionController->getCategories($request);
-        });
-
-        /**
-         * @route GET /rbac/permissions/resource-types
-         * @tag RBAC Permissions
-         * @summary Get resource types
-         * @description Retrieves all available resource types
-         * @requiresAuth true
-         * @response 200 application/json "Resource types retrieved successfully"
-         * @response 403 application/json "Permission denied"
-         */
-        Router::get('/resource-types', function (Request $request) use ($container) {
-            $permissionController = $container->get(PermissionController::class);
-            return $permissionController->getResourceTypes($request);
         });
     }, requiresAdminAuth: false);
 

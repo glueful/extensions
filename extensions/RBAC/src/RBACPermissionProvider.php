@@ -27,12 +27,19 @@ use Glueful\Cache\CacheEngine;
  */
 class RBACPermissionProvider implements PermissionProviderInterface
 {
-    private RoleRepository $roleRepository;
-    private PermissionRepository $permissionRepository;
-    private UserRoleRepository $userRoleRepository;
-    private UserPermissionRepository $userPermissionRepository;
-    private RolePermissionRepository $rolePermissionRepository;
-    private array $config;
+    private ?RoleRepository $roleRepository = null;
+    private ?PermissionRepository $permissionRepository = null;
+    private ?UserRoleRepository $userRoleRepository = null;
+    private ?UserPermissionRepository $userPermissionRepository = null;
+    private ?RolePermissionRepository $rolePermissionRepository = null;
+    private array $config = [
+        'cache_ttl' => 3600,
+        'cache_enabled' => true,
+        'cache_prefix' => 'rbac:',
+        'enable_hierarchy' => true,
+        'enable_inheritance' => true,
+        'max_hierarchy_depth' => 10
+    ];
     private array $permissionCache = [];
     private string $cachePrefix = 'rbac:';
     private bool $cacheEnabled = true;
@@ -62,11 +69,62 @@ class RBACPermissionProvider implements PermissionProviderInterface
             }
         }
 
-        $this->roleRepository = new RoleRepository();
-        $this->permissionRepository = new PermissionRepository();
-        $this->userRoleRepository = new UserRoleRepository();
-        $this->userPermissionRepository = new UserPermissionRepository();
-        $this->rolePermissionRepository = new RolePermissionRepository();
+        // Don't instantiate repositories here - use lazy loading
+    }
+
+    /**
+     * Get role repository (lazy loading)
+     */
+    private function getRoleRepository(): RoleRepository
+    {
+        if ($this->roleRepository === null) {
+            $this->roleRepository = new RoleRepository();
+        }
+        return $this->roleRepository;
+    }
+
+    /**
+     * Get permission repository (lazy loading)
+     */
+    private function getPermissionRepository(): PermissionRepository
+    {
+        if ($this->permissionRepository === null) {
+            $this->permissionRepository = new PermissionRepository();
+        }
+        return $this->permissionRepository;
+    }
+
+    /**
+     * Get user role repository (lazy loading)
+     */
+    private function getUserRoleRepository(): UserRoleRepository
+    {
+        if ($this->userRoleRepository === null) {
+            $this->userRoleRepository = new UserRoleRepository();
+        }
+        return $this->userRoleRepository;
+    }
+
+    /**
+     * Get user permission repository (lazy loading)
+     */
+    private function getUserPermissionRepository(): UserPermissionRepository
+    {
+        if ($this->userPermissionRepository === null) {
+            $this->userPermissionRepository = new UserPermissionRepository();
+        }
+        return $this->userPermissionRepository;
+    }
+
+    /**
+     * Get role permission repository (lazy loading)
+     */
+    private function getRolePermissionRepository(): RolePermissionRepository
+    {
+        if ($this->rolePermissionRepository === null) {
+            $this->rolePermissionRepository = new RolePermissionRepository();
+        }
+        return $this->rolePermissionRepository;
     }
 
     public function can(string $userUuid, string $permission, string $resource, array $context = []): bool
@@ -163,7 +221,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function assignPermission(string $userUuid, string $permission, string $resource, array $options = []): bool
     {
-        $permissionModel = $this->permissionRepository->findBySlug($permission);
+        $permissionModel = $this->getPermissionRepository()->findPermissionBySlug($permission);
         if (!$permissionModel) {
             return false;
         }
@@ -186,7 +244,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
         }
 
         try {
-            $result = $this->userPermissionRepository->create($data);
+            $result = $this->getUserPermissionRepository()->create($data);
             if (!empty($result)) {
                 $this->invalidateUserCache($userUuid);
                 return true;
@@ -201,12 +259,12 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function revokePermission(string $userUuid, string $permission, string $resource): bool
     {
-        $permissionModel = $this->permissionRepository->findBySlug($permission);
+        $permissionModel = $this->getPermissionRepository()->findPermissionBySlug($permission);
         if (!$permissionModel) {
             return false;
         }
 
-        $result = $this->userPermissionRepository->revokeUserPermission($userUuid, $permissionModel->getUuid());
+        $result = $this->getUserPermissionRepository()->revokeUserPermission($userUuid, $permissionModel->getUuid());
 
         if ($result) {
             $this->invalidateUserCache($userUuid);
@@ -218,7 +276,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function getAvailablePermissions(): array
     {
-        $permissions = $this->permissionRepository->findAllPermissions();
+        $permissions = $this->getPermissionRepository()->findAllPermissions();
         $result = [];
 
         foreach ($permissions as $permission) {
@@ -231,7 +289,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
     public function getAvailableResources(): array
     {
         // Get unique resource types from permissions
-        $resourceTypes = $this->permissionRepository->getResourceTypes();
+        $resourceTypes = $this->getPermissionRepository()->getResourceTypes();
         $result = [];
 
         foreach ($resourceTypes as $type) {
@@ -344,7 +402,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
         try {
             // Test role repository
-            $roleCount = $this->roleRepository->countRoles();
+            $roleCount = $this->getRoleRepository()->countRoles();
             $checks['roles'] = [
                 'status' => 'healthy',
                 'message' => "Found {$roleCount} roles"
@@ -358,7 +416,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
         try {
             // Test permission repository
-            $permissionCount = $this->permissionRepository->countPermissions();
+            $permissionCount = $this->getPermissionRepository()->countPermissions();
             $checks['permissions'] = [
                 'status' => 'healthy',
                 'message' => "Found {$permissionCount} permissions"
@@ -383,12 +441,12 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function assignRole(string $userUuid, string $roleSlug, array $options = []): bool
     {
-        $role = $this->roleRepository->findBySlug($roleSlug);
+        $role = $this->getRoleRepository()->findRoleBySlug($roleSlug);
         if (!$role) {
             return false;
         }
 
-        $result = $this->userRoleRepository->assignRole($userUuid, $role->getUuid(), $options);
+        $result = $this->getUserRoleRepository()->assignRole($userUuid, $role->getUuid(), $options);
 
         if ($result) {
             $this->invalidateUserCache($userUuid);
@@ -400,12 +458,12 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function revokeRole(string $userUuid, string $roleSlug): bool
     {
-        $role = $this->roleRepository->findBySlug($roleSlug);
+        $role = $this->getRoleRepository()->findRoleBySlug($roleSlug);
         if (!$role) {
             return false;
         }
 
-        $result = $this->userRoleRepository->revokeRole($userUuid, $role->getUuid());
+        $result = $this->getUserRoleRepository()->revokeRole($userUuid, $role->getUuid());
 
         if ($result) {
             $this->invalidateUserCache($userUuid);
@@ -417,11 +475,11 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function getUserRoles(string $userUuid, array $scope = []): array
     {
-        $userRoles = $this->userRoleRepository->getUserRoles($userUuid, $scope);
+        $userRoles = $this->getUserRoleRepository()->getUserRoles($userUuid, $scope);
         $roles = [];
 
         foreach ($userRoles as $userRole) {
-            $role = $this->roleRepository->findByUuid($userRole->getRoleUuid());
+            $role = $this->getRoleRepository()->findRoleByUuid($userRole->getRoleUuid());
             if ($role) {
                 $roles[] = $role;
             }
@@ -432,24 +490,24 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     public function hasRole(string $userUuid, string $roleSlug, array $scope = []): bool
     {
-        $role = $this->roleRepository->findBySlug($roleSlug);
+        $role = $this->getRoleRepository()->findRoleBySlug($roleSlug);
         if (!$role) {
             return false;
         }
 
-        return $this->userRoleRepository->hasUserRole($userUuid, $role->getUuid(), $scope);
+        return $this->getUserRoleRepository()->hasUserRole($userUuid, $role->getUuid(), $scope);
     }
 
     // Private helper methods
 
     private function hasDirectPermission(string $userUuid, string $permission, string $resource, array $context): bool
     {
-        $permissionModel = $this->permissionRepository->findBySlug($permission);
+        $permissionModel = $this->getPermissionRepository()->findPermissionBySlug($permission);
         if (!$permissionModel) {
             return false;
         }
 
-        $userPermissions = $this->userPermissionRepository->findByUser($userUuid, [
+        $userPermissions = $this->getUserPermissionRepository()->findByUser($userUuid, [
             'permission_uuid' => $permissionModel->getUuid(),
             'active_only' => true
         ]);
@@ -483,7 +541,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
             // Check role hierarchy if enabled
             if ($this->config['enable_hierarchy'] && $this->config['enable_inheritance']) {
-                $hierarchy = $this->roleRepository->getRoleHierarchy($role->getUuid());
+                $hierarchy = $this->getRoleRepository()->getRoleHierarchy($role->getUuid());
                 foreach ($hierarchy as $parentRole) {
                     if ($this->roleHasPermission($parentRole, $permission, $resource)) {
                         return true;
@@ -498,7 +556,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
     private function roleHasPermission(Role $role, string $permission, string $resource): bool
     {
         // Check if permission exists
-        $permissionModel = $this->permissionRepository->findBySlug($permission);
+        $permissionModel = $this->getPermissionRepository()->findPermissionBySlug($permission);
         if (!$permissionModel) {
             return false;
         }
@@ -524,7 +582,7 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
         // Check if role has this permission
         $context = $resource !== '*' ? ['resource' => $resource] : [];
-        $result = $this->rolePermissionRepository->roleHasPermission(
+        $result = $this->getRolePermissionRepository()->roleHasPermission(
             $role->getUuid(),
             $permissionModel->getUuid(),
             $context
@@ -545,11 +603,11 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
     private function getDirectUserPermissions(string $userUuid): array
     {
-        $userPermissions = $this->userPermissionRepository->getUserPermissions($userUuid);
+        $userPermissions = $this->getUserPermissionRepository()->getUserPermissions($userUuid);
         $permissions = [];
 
         foreach ($userPermissions as $userPermission) {
-            $permission = $this->permissionRepository->findByUuid($userPermission->getPermissionUuid());
+            $permission = $this->getPermissionRepository()->findPermissionByUuid($userPermission->getPermissionUuid());
             if ($permission) {
                 $resourceFilter = $userPermission->getResourceFilter();
                 $resource = $resourceFilter['resource'] ?? '*';
@@ -574,13 +632,14 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
         foreach ($userRoles as $role) {
             // Get permissions for this role
-            $rolePermissions = $this->rolePermissionRepository->getRolePermissions(
+            $rolePermissions = $this->getRolePermissionRepository()->getRolePermissions(
                 $role->getUuid(),
                 ['active_only' => true]
             );
 
             foreach ($rolePermissions as $rolePermission) {
-                $permission = $this->permissionRepository->findByUuid($rolePermission->getPermissionUuid());
+                $permission = $this->getPermissionRepository()
+                    ->findPermissionByUuid($rolePermission->getPermissionUuid());
                 if (!$permission) {
                     continue;
                 }
@@ -601,16 +660,17 @@ class RBACPermissionProvider implements PermissionProviderInterface
 
             // Include inherited permissions if hierarchy is enabled
             if ($this->config['enable_hierarchy'] && $this->config['enable_inheritance']) {
-                $hierarchy = $this->roleRepository->getRoleHierarchy($role->getUuid());
+                $hierarchy = $this->getRoleRepository()->getRoleHierarchy($role->getUuid());
 
                 foreach ($hierarchy as $parentRole) {
-                    $parentPermissions = $this->rolePermissionRepository->getRolePermissions(
+                    $parentPermissions = $this->getRolePermissionRepository()->getRolePermissions(
                         $parentRole->getUuid(),
                         ['active_only' => true]
                     );
 
                     foreach ($parentPermissions as $parentPermission) {
-                        $permission = $this->permissionRepository->findByUuid($parentPermission->getPermissionUuid());
+                        $permission = $this->getPermissionRepository()
+                            ->findPermissionByUuid($parentPermission->getPermissionUuid());
                         if (!$permission) {
                             continue;
                         }

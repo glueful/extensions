@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Glueful\Http\Router;
 use Symfony\Component\HttpFoundation\Request;
 use Glueful\Http\Response;
+use Glueful\Constants\ErrorCodes;
 
 /*
  * Social Login Routes
@@ -25,8 +26,9 @@ Router::group('/auth/social', function () {
      * @response 302 "Redirects to Google's OAuth authorization page"
      */
     Router::get('/google', function (Request $request) {
-        // Initialize the Google auth provider
-        $googleProvider = new \Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider();
+        // Get the Google auth provider from DI container
+        $container = app();
+        $googleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider::class);
 
         try {
             // The authenticate method handles web-based OAuth flow with redirects
@@ -34,10 +36,10 @@ Router::group('/auth/social', function () {
 
             // If we reach this point, something went wrong as we should have been redirected
             $error = $googleProvider->getError() ?: "Failed to initiate Google authentication";
-            return Response::error($error, 500)->send();
+            return Response::error($error, ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         } catch (\Exception $e) {
             error_log("Google authentication error: " . $e->getMessage());
-            return Response::error("Failed to initialize Google authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to initialize Google authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -66,18 +68,19 @@ Router::group('/auth/social', function () {
             $idToken = $requestData['id_token'] ?? null;
 
             if (empty($idToken)) {
-                return Response::error('Missing ID token', 400)->send();
+                return Response::error('Missing ID token', ErrorCodes::BAD_REQUEST)->send();
             }
 
-            // Create the Google provider
-            $googleProvider = new \Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider();
+            // Get the Google provider from DI container
+            $container = app();
+            $googleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider::class);
 
             // Verify the ID token
             $userData = $googleProvider->verifyNativeToken($idToken);
 
             if (!$userData) {
                 $error = $googleProvider->getError() ?: 'Failed to verify Google ID token';
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -90,7 +93,7 @@ Router::group('/auth/social', function () {
             ], 'Successfully authenticated with Google')->send();
         } catch (\Exception $e) {
             error_log('Google token verification error: ' . $e->getMessage());
-            return Response::error('Failed to authenticate with Google: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to authenticate with Google: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -111,15 +114,16 @@ Router::group('/auth/social', function () {
      */
     Router::get('/google/callback', function (Request $request) {
         try {
-            // Initialize the Google auth provider
-            $googleProvider = new \Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider();
+            // Get the Google auth provider from DI container
+            $container = app();
+            $googleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GoogleAuthProvider::class);
 
             // Process the OAuth callback
             $userData = $googleProvider->authenticate($request);
 
             if (!$userData) {
                 $error = $googleProvider->getError() ?: "Failed to authenticate with Google";
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -132,7 +136,7 @@ Router::group('/auth/social', function () {
             ], "Successfully authenticated with Google")->send();
         } catch (\Exception $e) {
             error_log("Google callback error: " . $e->getMessage());
-            return Response::error("Failed to process Google authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to process Google authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -144,8 +148,9 @@ Router::group('/auth/social', function () {
      * @response 302 "Redirects to Facebook's OAuth authorization page"
      */
     Router::get('/facebook', function (Request $request) {
-        // Initialize the Facebook auth provider
-        $facebookProvider = new \Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider();
+        // Get the Facebook auth provider from DI container
+        $container = app();
+        $facebookProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider::class);
 
         try {
             // The authenticate method handles web-based OAuth flow with redirects
@@ -153,10 +158,10 @@ Router::group('/auth/social', function () {
 
             // If we reach this point, something went wrong as we should have been redirected
             $error = $facebookProvider->getError() ?: "Failed to initiate Facebook authentication";
-            return Response::error($error, 500)->send();
+            return Response::error($error, ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         } catch (\Exception $e) {
             error_log("Facebook authentication error: " . $e->getMessage());
-            return Response::error("Failed to initialize Facebook authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to initialize Facebook authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -185,18 +190,19 @@ Router::group('/auth/social', function () {
             $accessToken = $requestData['access_token'] ?? null;
 
             if (empty($accessToken)) {
-                return Response::error('Missing access token', 400)->send();
+                return Response::error('Missing access token', ErrorCodes::BAD_REQUEST)->send();
             }
 
-            // Create the Facebook provider
-            $facebookProvider = new \Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider();
+            // Get the Facebook provider from DI container
+            $container = app();
+            $facebookProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider::class);
 
             // Verify the access token
             $userData = $facebookProvider->verifyNativeToken($accessToken);
 
             if (!$userData) {
                 $error = $facebookProvider->getError() ?: 'Failed to verify Facebook access token';
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -209,7 +215,7 @@ Router::group('/auth/social', function () {
             ], 'Successfully authenticated with Facebook')->send();
         } catch (\Exception $e) {
             error_log('Facebook token verification error: ' . $e->getMessage());
-            return Response::error('Failed to authenticate with Facebook: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to authenticate with Facebook: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -230,15 +236,16 @@ Router::group('/auth/social', function () {
      */
     Router::get('/facebook/callback', function (Request $request) {
         try {
-            // Initialize the Facebook auth provider
-            $facebookProvider = new \Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider();
+            // Get the Facebook auth provider from DI container
+            $container = app();
+            $facebookProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\FacebookAuthProvider::class);
 
             // Process the OAuth callback
             $userData = $facebookProvider->authenticate($request);
 
             if (!$userData) {
                 $error = $facebookProvider->getError() ?: "Failed to authenticate with Facebook";
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -251,7 +258,7 @@ Router::group('/auth/social', function () {
             ], "Successfully authenticated with Facebook")->send();
         } catch (\Exception $e) {
             error_log("Facebook callback error: " . $e->getMessage());
-            return Response::error("Failed to process Facebook authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to process Facebook authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -263,8 +270,9 @@ Router::group('/auth/social', function () {
      * @response 302 "Redirects to GitHub's OAuth authorization page"
      */
     Router::get('/github', function (Request $request) {
-        // Initialize the GitHub auth provider
-        $githubProvider = new \Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider();
+        // Get the GitHub auth provider from DI container
+        $container = app();
+        $githubProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider::class);
 
         try {
             // The authenticate method handles web-based OAuth flow with redirects
@@ -272,10 +280,10 @@ Router::group('/auth/social', function () {
 
             // If we reach this point, something went wrong as we should have been redirected
             $error = $githubProvider->getError() ?: "Failed to initiate GitHub authentication";
-            return Response::error($error, 500)->send();
+            return Response::error($error, ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         } catch (\Exception $e) {
             error_log("GitHub authentication error: " . $e->getMessage());
-            return Response::error("Failed to initialize GitHub authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to initialize GitHub authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -304,18 +312,19 @@ Router::group('/auth/social', function () {
             $accessToken = $requestData['access_token'] ?? null;
 
             if (empty($accessToken)) {
-                return Response::error('Missing access token', 400)->send();
+                return Response::error('Missing access token', ErrorCodes::BAD_REQUEST)->send();
             }
 
-            // Create the GitHub provider
-            $githubProvider = new \Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider();
+            // Get the GitHub provider from DI container
+            $container = app();
+            $githubProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider::class);
 
             // Verify the access token
             $userData = $githubProvider->verifyNativeToken($accessToken);
 
             if (!$userData) {
                 $error = $githubProvider->getError() ?: 'Failed to verify GitHub access token';
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -328,7 +337,7 @@ Router::group('/auth/social', function () {
             ], 'Successfully authenticated with GitHub')->send();
         } catch (\Exception $e) {
             error_log('GitHub token verification error: ' . $e->getMessage());
-            return Response::error('Failed to authenticate with GitHub: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to authenticate with GitHub: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -349,15 +358,16 @@ Router::group('/auth/social', function () {
      */
     Router::get('/github/callback', function (Request $request) {
         try {
-            // Initialize the GitHub auth provider
-            $githubProvider = new \Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider();
+            // Get the GitHub auth provider from DI container
+            $container = app();
+            $githubProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\GithubAuthProvider::class);
 
             // Process the OAuth callback
             $userData = $githubProvider->authenticate($request);
 
             if (!$userData) {
                 $error = $githubProvider->getError() ?: "Failed to authenticate with GitHub";
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -370,7 +380,7 @@ Router::group('/auth/social', function () {
             ], "Successfully authenticated with GitHub")->send();
         } catch (\Exception $e) {
             error_log("GitHub callback error: " . $e->getMessage());
-            return Response::error("Failed to process GitHub authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to process GitHub authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -382,8 +392,9 @@ Router::group('/auth/social', function () {
      * @response 302 "Redirects to Apple's OAuth authorization page"
      */
     Router::get('/apple', function (Request $request) {
-        // Initialize the Apple auth provider
-        $appleProvider = new \Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider();
+        // Get the Apple auth provider from DI container
+        $container = app();
+        $appleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider::class);
 
         try {
             // The authenticate method handles web-based OAuth flow with redirects
@@ -391,10 +402,10 @@ Router::group('/auth/social', function () {
 
             // If we reach this point, something went wrong as we should have been redirected
             $error = $appleProvider->getError() ?: "Failed to initiate Apple authentication";
-            return Response::error($error, 500)->send();
+            return Response::error($error, ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         } catch (\Exception $e) {
             error_log("Apple authentication error: " . $e->getMessage());
-            return Response::error("Failed to initialize Apple authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to initialize Apple authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -423,18 +434,19 @@ Router::group('/auth/social', function () {
             $idToken = $requestData['id_token'] ?? null;
 
             if (empty($idToken)) {
-                return Response::error('Missing ID token', 400)->send();
+                return Response::error('Missing ID token', ErrorCodes::BAD_REQUEST)->send();
             }
 
-            // Create the Apple provider
-            $appleProvider = new \Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider();
+            // Get the Apple provider from DI container
+            $container = app();
+            $appleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider::class);
 
             // Verify the ID token
             $userData = $appleProvider->verifyNativeToken($idToken);
 
             if (!$userData) {
                 $error = $appleProvider->getError() ?: 'Failed to verify Apple ID token';
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -447,7 +459,7 @@ Router::group('/auth/social', function () {
             ], 'Successfully authenticated with Apple')->send();
         } catch (\Exception $e) {
             error_log('Apple token verification error: ' . $e->getMessage());
-            return Response::error('Failed to authenticate with Apple: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to authenticate with Apple: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -470,15 +482,16 @@ Router::group('/auth/social', function () {
      */
     Router::post('/apple/callback', function (Request $request) {
         try {
-            // Initialize the Apple auth provider
-            $appleProvider = new \Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider();
+            // Get the Apple auth provider from DI container
+            $container = app();
+            $appleProvider = $container->get(\Glueful\Extensions\SocialLogin\Providers\AppleAuthProvider::class);
 
             // Process the OAuth callback
             $userData = $appleProvider->authenticate($request);
 
             if (!$userData) {
                 $error = $appleProvider->getError() ?: "Failed to authenticate with Apple";
-                return Response::error($error, 401)->send();
+                return Response::error($error, ErrorCodes::UNAUTHORIZED)->send();
             }
 
             // Generate authentication tokens
@@ -491,7 +504,7 @@ Router::group('/auth/social', function () {
             ], "Successfully authenticated with Apple")->send();
         } catch (\Exception $e) {
             error_log("Apple callback error: " . $e->getMessage());
-            return Response::error("Failed to process Apple authentication: " . $e->getMessage(), 500)->send();
+            return Response::error("Failed to process Apple authentication: " . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     });
 
@@ -523,17 +536,15 @@ Router::group('/user/social-accounts', function () {
             $userData = $request->attributes->get('user');
 
             if (!$userData || !isset($userData['uuid'])) {
-                return Response::error('Unauthorized', 401)->send();
+                return Response::error('Unauthorized', ErrorCodes::UNAUTHORIZED)->send();
             }
 
             $userUuid = $userData['uuid'];
 
-            // Query social accounts
-            $connection = new \Glueful\Database\Connection();
-            $db = new \Glueful\Database\QueryBuilder(
-                $connection->getPDO(),
-                $connection->getDriver()
-            );
+            // Get database components from DI container
+            $container = app();
+            $connection = $container->get(\Glueful\Database\Connection::class);
+            $db = $container->get(\Glueful\Database\QueryBuilder::class);
 
             $accounts = $db->select('social_accounts', [
                     'uuid',
@@ -546,7 +557,7 @@ Router::group('/user/social-accounts', function () {
 
             return Response::ok($accounts, 'Social accounts retrieved successfully')->send();
         } catch (\Exception $e) {
-            return Response::error('Failed to retrieve social accounts: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to retrieve social accounts: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }, requiresAuth: true);
 
@@ -569,17 +580,15 @@ Router::group('/user/social-accounts', function () {
             $userData = $request->attributes->get('user');
 
             if (!$userData || !isset($userData['uuid'])) {
-                return Response::error('Unauthorized', 401)->send();
+                return Response::error('Unauthorized', ErrorCodes::UNAUTHORIZED)->send();
             }
 
             $userUuid = $userData['uuid'];
 
-            // Query social account to check ownership
-            $connection = new \Glueful\Database\Connection();
-            $db = new \Glueful\Database\QueryBuilder(
-                $connection->getPDO(),
-                $connection->getDriver()
-            );
+            // Get database components from DI container
+            $container = app();
+            $connection = $container->get(\Glueful\Database\Connection::class);
+            $db = $container->get(\Glueful\Database\QueryBuilder::class);
 
             $account = $db->select('social_accounts')
                 ->where([
@@ -599,12 +608,12 @@ Router::group('/user/social-accounts', function () {
             ]);
 
             if (!$deleted) {
-                return Response::error('Failed to unlink social account', 500)->send();
+                return Response::error('Failed to unlink social account', ErrorCodes::INTERNAL_SERVER_ERROR)->send();
             }
 
             return Response::ok(null, 'Social account unlinked successfully')->send();
         } catch (\Exception $e) {
-            return Response::error('Failed to unlink social account: ' . $e->getMessage(), 500)->send();
+            return Response::error('Failed to unlink social account: ' . $e->getMessage(), ErrorCodes::INTERNAL_SERVER_ERROR)->send();
         }
     }, requiresAuth: true);
 });
