@@ -15,21 +15,21 @@ if (!is_dir($extensionsDir)) {
 $gitignoreContent = "vendor/\n.env\ncomposer.lock\n";
 
 // Get all extension directories
-$extensions = array_filter(scandir($extensionsDir), function($item) use ($extensionsDir) {
+$extensions = array_filter(scandir($extensionsDir), function ($item) use ($extensionsDir) {
     return $item !== '.' && $item !== '..' && is_dir($extensionsDir . '/' . $item);
 });
 
 foreach ($extensions as $extension) {
     $extensionPath = $extensionsDir . '/' . $extension;
     $gitignorePath = $extensionPath . '/.gitignore';
-    
+
     if (!file_exists($gitignorePath)) {
         file_put_contents($gitignorePath, $gitignoreContent);
         echo "Created .gitignore in $extension\n";
     } else {
         // Check if vendor/ is already in .gitignore
         $existingContent = file_get_contents($gitignorePath);
-        
+
         $linesToAdd = [];
         if (strpos($existingContent, 'vendor/') === false) {
             $linesToAdd[] = 'vendor/';
@@ -40,7 +40,7 @@ foreach ($extensions as $extension) {
         if (strpos($existingContent, 'composer.lock') === false) {
             $linesToAdd[] = 'composer.lock';
         }
-        
+
         if (!empty($linesToAdd)) {
             $existingContent = rtrim($existingContent, "\n") . "\n" . implode("\n", $linesToAdd) . "\n";
             file_put_contents($gitignorePath, $existingContent);
