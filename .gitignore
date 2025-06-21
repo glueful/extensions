@@ -6,6 +6,11 @@
 # Environment variables
 /.env
 
+# Extension vendor directories
+extensions/*/vendor/
+extensions/*/composer.lock
+extensions/*/.env
+
 # Operating system files
 .DS_Store
 Thumbs.db
