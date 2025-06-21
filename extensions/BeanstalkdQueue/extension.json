@@ -1,5 +1,6 @@
 {
     "name": "BeanstalkdQueue",
+    "displayName": "Beanstalkd Queue Driver",
     "version": "1.0.0",
     "description": "Beanstalkd queue driver for high-performance job processing with tube management and priority scheduling",
     "author": "Glueful Framework",
